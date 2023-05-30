@@ -39,7 +39,10 @@ class Rule(object):
         try:
             self._action(self._deps, self._target)
         except TypeError:
-            subprocess.run(self._action)
+            subprocess.run(" ".join(self._action), shell=True)
+
+        if not os.path.isfile(self._target):
+            raise FileNotFoundError(f"Target {self._target} not created by rule `{self.actionName}`")
 
     @property
     def action(self):
@@ -122,6 +125,12 @@ def loadScript():
     exec(script)
 
 
+def clearRules():
+    global NAMED_RULES, PATTERN_RULES
+
+    NAMED_RULES = []
+    PATTERN_RULES = []
+
 def applyRules():
     with Progress() as progress:
         global PROGRESS
@@ -164,7 +173,9 @@ def findBuildPath(target):
 
         # Stopping here is named rule was found.
         if depNames != []:
-            return {target: [findBuildPath(dep) for dep in depNames]}
+            depNames = [findBuildPath(dep) for dep in depNames]
+            depNames = [ii for n,ii in enumerate(depNames) if ii not in depNames[:n]]
+            return {target: depNames}
 
         for rule in PATTERN_RULES:
             regex = rule._target.replace("%", "([a-zA-Z0-9_/-]*)")
@@ -177,12 +188,15 @@ def findBuildPath(target):
                     depNames += [depName]
 
         if depNames != []:
-            return {target: [findBuildPath(dep) for dep in depNames]}
+            depNames = [findBuildPath(dep) for dep in depNames]
+            depNames = [ii for n,ii in enumerate(depNames) if ii not in depNames[:n]]
+            return {target: depNames}
         else:
             Console().print(
                 f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{target}[/light_slate_blue]! Aborting!"
             )
-            sys.exit(1)
+            return target
+            #sys.exit(1)
 
 
 def main():

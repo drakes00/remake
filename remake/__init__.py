@@ -4,3 +4,5 @@
 from remake.remake import Builder
 from remake.remake import Rule
 from remake.remake import PatternRule
+
+from remake.remake import findBuildPath, clearRules

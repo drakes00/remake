@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 import os
-from ward import test, fixture
+from ward import test, fixture, raises
 
-from remake import Builder, Rule
+from remake import Builder, Rule, clearRules
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -34,7 +34,9 @@ def test_01_builderPyFun():
 
     builder = Builder(action=check_foobar)
     rule = Rule(target="foo", deps="bar", builder=builder)
-    rule.apply()
+    with raises(FileNotFoundError):
+        rule.apply()
+    clearRules()
 
 
 @test("Builders can handle shell commands")
@@ -44,15 +46,17 @@ def test_02_builderShell(_=checkTmpFile):
     builder = Builder(action=f"touch {TMP_FILE}")
     rule = Rule(target=TMP_FILE, deps=[], builder=builder)
     rule.apply()
+    clearRules()
 
 
 @test("Builders can handle automatic variables ($^, $@)")
 def test_03_builderAutoVar():
     """Builders can handle automatic variables ($^, $@)"""
 
-    builder = Builder(action=f"cp $^ $@")
+    builder = Builder(action="cp $^ $@")
     rule = Rule(target=TMP_FILE, deps=TMP_FILE, builder=builder)
     assert rule.action == f"cp {TMP_FILE} {TMP_FILE}"
+    clearRules()
 
 
 # Présence de builders avec fonctions natives (déplacer, supprimer, etc)

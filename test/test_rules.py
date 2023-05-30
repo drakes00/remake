@@ -3,7 +3,7 @@
 
 from ward import test
 
-from remake import Builder, Rule, PatternRule
+from remake import Builder, Rule, PatternRule, clearRules
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -16,6 +16,7 @@ def test_01_namedRules():
     rule = Rule(target=TMP_FILE, deps=TMP_FILE, builder=builder)
     assert rule.deps == [TMP_FILE]
     assert rule.target == TMP_FILE
+    clearRules()
 
 
 @test("Rules can be patterns")
@@ -26,3 +27,4 @@ def test_01_patternRules():
     rule = PatternRule(target="%.foo", deps="%.bar", builder=builder)
     assert rule.deps == ["%.bar"]
     assert rule.target == "%.foo"
+    clearRules()
