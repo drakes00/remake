@@ -8,6 +8,10 @@ import subprocess
 import sys
 
 from rich.progress import Console, Progress
+from collections import deque
+
+from builders import Builder
+from builders import *
 
 NAMED_RULES = []
 PATTERN_RULES = []
@@ -36,6 +40,10 @@ class Rule(object):
         NAMED_RULES += [self]
 
     def apply(self):
+        if os.path.isfile(self._target):
+            print(f"Target {self._target} already exists`")
+            return
+
         try:
             self._action(self._deps, self._target)
         except TypeError:
@@ -88,27 +96,6 @@ class PatternRule(Rule):
         PATTERN_RULES += [self]
 
 
-class Builder(object):
-    _action = None
-
-    def __init__(self, action):
-        self._action = action
-
-    def _parseAction(self, deps, target):
-        if isinstance(self._action, str):
-            ret = self._action
-            ret = ret.replace("$^", " ".join(deps))
-            ret = ret.replace("$@", target)
-            ret = ret.split(" ")
-            return ret
-        else:
-            return self._action
-
-    @property
-    def action(self):
-        return self._action
-
-
 class Target(object):
     def __init__(self, target):
         global TARGETS
@@ -159,6 +146,16 @@ def buildTargets():
     from rich.pretty import pprint
     pprint(deps, expand_all=True)
 
+    sortDeps(deps)
+
+
+def sortDeps(targets):
+    q = deque()
+    ret = deque()
+
+    for target in targets:
+        print(target)
+
 
 def findBuildPath(target):
     if os.path.isfile(target):
@@ -170,12 +167,13 @@ def findBuildPath(target):
             if occ:
                 # Target found in rule's target.
                 depNames += rule._deps
+                break
 
         # Stopping here is named rule was found.
         if depNames != []:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n,ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {target: depNames}
+            return {(target, rule): depNames}
 
         for rule in PATTERN_RULES:
             regex = rule._target.replace("%", "([a-zA-Z0-9_/-]*)")
@@ -187,16 +185,17 @@ def findBuildPath(target):
                     depName = occ.expand(dep.replace("%", r"\1"))
                     depNames += [depName]
 
+                break
+
         if depNames != []:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n,ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {target: depNames}
+            return {(target, rule): depNames}
         else:
             Console().print(
                 f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{target}[/light_slate_blue]! Aborting!"
             )
             return target
-            #sys.exit(1)
 
 
 def main():
