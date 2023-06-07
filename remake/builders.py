@@ -1,26 +1,31 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Module implementing builders to be used in rules."""
 
 
-class Builder(object):
+class Builder():
+    """Generic builder class."""
     _action = None
 
     def __init__(self, action):
         self._action = action
 
-    def _parseAction(self, deps, target):
+    def parseAction(self, deps, target):
+        """Parses builder action for automatic variables ($@, etc)."""
         if isinstance(self._action, str):
             ret = self._action
-            ret = ret.replace("$<", " ".join(deps))
-            ret = ret.replace("$^", deps[0])
+            if deps:
+                ret = ret.replace("$<", " ".join(deps))
+                ret = ret.replace("$^", deps[0])
             ret = ret.replace("$@", target)
             ret = ret.split(" ")
             return ret
-        else:
-            return self._action
+
+        return self._action
 
     @property
     def action(self):
+        """Returns builder's action."""
         return self._action
 
 

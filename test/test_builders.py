@@ -27,8 +27,8 @@ def test_01_builderPyFun():
     """Builders can handle python functions"""
 
     def check_foobar(deps, target):
-        assert type(deps) == list
-        assert type(target) == str
+        assert isinstance(deps, list)
+        assert isinstance(target, str)
         assert deps == ["bar"]
         assert target == "foo"
 
