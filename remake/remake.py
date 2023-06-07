@@ -18,7 +18,6 @@ PATTERN_RULES = []
 TARGETS = []
 VERBOSE = False
 DRY_RUN = False
-PROGRESS = None
 
 
 class Rule(object):
@@ -26,7 +25,7 @@ class Rule(object):
     _target = None
     _action = None
 
-    def __init__(self, deps, target, builder):
+    def __init__(self, target, deps, builder):
         try:
             deps.pop
             self._deps = deps
@@ -41,13 +40,16 @@ class Rule(object):
 
     def apply(self):
         if os.path.isfile(self._target):
-            print(f"Target {self._target} already exists`")
             return
+
+        for dep in self._deps:
+            if not os.path.isfile(dep):
+                raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._target}")
 
         try:
             self._action(self._deps, self._target)
         except TypeError:
-            subprocess.run(" ".join(self._action), shell=True)
+            subprocess.run(" ".join(self._action), shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
         if not os.path.isfile(self._target):
             raise FileNotFoundError(f"Target {self._target} not created by rule `{self.actionName}`")
@@ -95,6 +97,21 @@ class PatternRule(Rule):
         global PATTERN_RULES
         PATTERN_RULES += [self]
 
+    def expand(self, target):
+        # Recomputing basename to obtain deps.
+        basename = target.replace(self._target.replace("%", ""), "")
+        assert target == self._target.replace("%", basename)
+
+        # Computing deps and action string
+        deps = [dep.replace("%", basename) for dep in self._deps]
+        if type(self._action) == list:
+            action = " ".join(self._action).replace("%", basename)
+        else:
+            raise NotImplementedError
+
+        # Return instancieted rule.
+        return Rule(target=target, deps=deps, builder=Builder(action=action))
+
 
 class Target(object):
     def __init__(self, target):
@@ -118,35 +135,39 @@ def clearRules():
     NAMED_RULES = []
     PATTERN_RULES = []
 
-def applyRules():
-    with Progress() as progress:
-        global PROGRESS
-        PROGRESS = progress
-        task = progress.add_task("Compilation steps", total=len(RULES))
-        for job, rule in enumerate(RULES):
-            if os.path.isfile(rule.target):
-                progress.console.print(
-                    f"[{job+1}/{len(RULES)}] [[bold plum1]SKIP[/bold plum1]] {rule.actionName}"
-                )
-                progress.advance(task)
-            else:
-                progress.console.print(f"[{job+1}/{len(RULES)}] {rule.actionName}")
-                if VERBOSE:
-                    PROGRESS.console.print(rule.action)
-                if DRY_RUN is False:
-                    rule.apply()
-                progress.advance(task)
-
 
 def buildTargets():
+    from rich.pretty import pprint
     deps = []
     for target in TARGETS:
         deps += [findBuildPath(target)]
 
-    from rich.pretty import pprint
-    pprint(deps, expand_all=True)
+    deps = sortDeps(deps)
+    with Progress() as progress:
+        task = progress.add_task("Compilation steps", total=len(deps))
+        for job, dep in enumerate(deps):
+            if type(dep) == str:
+                target = dep
+            elif type(dep) == tuple:
+                target = dep[0]
 
-    sortDeps(deps)
+            if os.path.isfile(target):
+                progress.console.print(
+                    f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {target} already exists."
+                )
+                progress.advance(task)
+            else:
+                assert type(dep) == tuple
+                rule = dep[1]
+                if isinstance(rule, PatternRule):
+                    rule = rule.expand(dep[0])
+
+                progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
+                if VERBOSE:
+                    progress.console.print(rule.action)
+                if DRY_RUN is False:
+                    rule.apply()
+                progress.advance(task)
 
 
 def sortDeps(targets):
@@ -154,7 +175,18 @@ def sortDeps(targets):
     ret = deque()
 
     for target in targets:
-        print(target)
+        q.append(target)
+
+    while q:
+        node = q.popleft()
+        if type(node) == str:
+            ret.appendleft(node)
+        elif type(node) == dict:
+            ret.appendleft(list(node.keys())[0])
+            for dep in list(node.values())[0]:
+                q.append(dep)
+    
+    return ret
 
 
 def findBuildPath(target):
