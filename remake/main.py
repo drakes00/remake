@@ -27,6 +27,17 @@ class Target():
             TARGETS += [target]
 
 
+def getTargets():
+    """Returns the list of targets to build."""
+    return TARGETS
+
+
+def clearTargets():
+    """Clears list of targets."""
+    global TARGETS
+    TARGETS = []
+
+
 def loadScript():
     """Loads and execs the ReMakeFile script."""
     with open("ReMakeFile", "r") as handle:
@@ -74,17 +85,17 @@ def sortDeps(targets):
     tmpQueue = deque()
     ret = deque()
 
-    for target in targets:
+    for target in targets[::-1]:
         tmpQueue.append(target)
 
-    while tmpQueue:
-        node = tmpQueue.popleft()
-        if isinstance(node, str):
-            ret.appendleft(node)
-        elif isinstance(node, dict):
-            ret.appendleft(list(node.keys())[0])
-            for dep in list(node.values())[0]:
-                tmpQueue.append(dep)
+        while tmpQueue:
+            node = tmpQueue.popleft()
+            if isinstance(node, str):
+                ret.appendleft(node)
+            elif isinstance(node, dict):
+                ret.appendleft(list(node.keys())[0])
+                for dep in list(node.values())[0]:
+                    tmpQueue.append(dep)
 
     return ret
 
@@ -117,7 +128,7 @@ def findBuildPath(target):
     foundRule = None
     for rule in patternRules:
         regex = rule.target.replace("%", "([a-zA-Z0-9_/-]*)")
-        occ = re.match(regex, target)
+        occ = re.match(regex+"$", target)
         if occ:
             # Rule was an anonymous rule (with %).
             # Expanding rule to generate deps file names.

@@ -4,7 +4,8 @@
 import os
 from ward import test, raises, fixture
 
-from remake import Builder, Rule, findBuildPath, clearRules
+from remake import Builder, Rule, PatternRule, Target
+from remake import findBuildPath, clearRules, getRules, clearTargets, getTargets, loadScript
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -57,7 +58,6 @@ def test_01_funDeps(_=ensureEmptyRuleList):
     r_6_3 = Rule(target="b1", deps=["a1"], builder=fooBuilder)
     r_6_4 = Rule(target="b2", deps=["a1", "a2"], builder=fooBuilder)
     assert findBuildPath("d") == {("d", r_6_1): [{("c", r_6_2): [{("b1", r_6_3): ["a1"]}, {("b2", r_6_4): ["a1", "a2"]}]}, "a2", {("b1", r_6_3): ["a1"]}]}
-    clearRules()
 
 
 @test("Dependency can appear multiple times in the tree")
@@ -68,7 +68,6 @@ def test_02_funDepsMultipleTimes(_=ensureEmptyRuleList):
     r_1 = Rule(target="a", deps=["b", "c"], builder=fooBuilder)
     r_2 = Rule(target="b", deps="c", builder=fooBuilder)
     assert findBuildPath("a") == {("a", r_1): [{("b", r_2): ["c"]}, "c"]}
-    clearRules()
 
 
 @test("Same rule applied twice should be ignored")
@@ -80,7 +79,6 @@ def test_03_funSameRuleTwice(_=ensureEmptyRuleList):
     r_1 = Rule(target="a", deps="b", builder=fooBuilder)
     r_2 = Rule(target="a", deps="b", builder=fooBuilder)
     assert findBuildPath("a") == {("a", r_1): ["b"]}
-    clearRules()
 
 
 @test("Rules must make target")
@@ -105,7 +103,47 @@ def test_04_funMakeTarget(_=ensureEmptyRuleList):
     rule.apply()
     assert os.path.isfile(TMP_FILE)
     os.remove(TMP_FILE)
+
+
+@test("ReMakeFile can be parsed")
+def test_05_parseReMakeFile(_=ensureEmptyRuleList):
+    """ReMakeFile can be parsed"""
+    ReMakeFile = """
+fooBuilder = Builder(action="")
+Rule(target="d", deps=["c", "a2", "b1"], builder=fooBuilder)
+Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
+Rule(target="b1", deps=["a1"], builder=fooBuilder)
+Rule(target="b2", deps=["a1", "a2"], builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+Target("d")
+Target("d.foo")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
     
+    os.chdir("/tmp")
+    loadScript()
+    named, pattern = getRules()
+    targets = getTargets()
+    clearRules()
+    clearTargets()
+    os.remove("/tmp/ReMakeFile")
+
+    fooBuilder = Builder(action="")
+    r_1 = Rule(target="d", deps=["c", "a2", "b1"], builder=fooBuilder)
+    r_2 = Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
+    r_3 = Rule(target="b1", deps=["a1"], builder=fooBuilder)
+    r_4 = Rule(target="b2", deps=["a1", "a2"], builder=fooBuilder)
+    r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    Target("d")
+    Target("d.foo")
+
+    assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
+    assert pattern == [r_5]
+    assert targets == ["d", "d.foo"]
+
+# Sub ReMakeFile
 # Pas de cycles
 # Nettoyage des deps (make clean)
+# Prevent nettoyage des deps (NoClean(target))
 # Environnement avec dossier cache et output
