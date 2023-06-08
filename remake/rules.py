@@ -46,6 +46,17 @@ class Rule():
         global NAMED_RULES
         NAMED_RULES += [self]
 
+    def __eq__(self, other):
+        return (self._target, self._deps, self._action) == (other._target, other._deps, other._action)
+    
+    def __hash__(self):
+        try:
+            # When action is a function
+            return hash(tuple([self._target, *self._deps, self._action]))
+        except TypeError:
+            # When action is a subprocess string list
+            return hash(tuple([self._target, *self._deps, *self._action]))
+
     def apply(self):
         """Applies rule's action."""
         if os.path.isfile(self._target):
