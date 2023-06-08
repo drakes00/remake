@@ -5,6 +5,7 @@
 import argparse
 import os
 import re
+import subprocess
 
 from collections import deque
 from rich.progress import Console, Progress
@@ -38,6 +39,11 @@ def clearTargets():
     TARGETS = []
 
 
+class SubReMakeDir():
+    def __init__(self, subDir):
+        subprocess.run(["remake"], cwd=subDir)
+
+
 def loadScript():
     """Loads and execs the ReMakeFile script."""
     with open("ReMakeFile", "r") as handle:
@@ -54,7 +60,7 @@ def buildTargets():
 
     deps = sortDeps(deps)
     with Progress() as progress:
-        task = progress.add_task("Compilation steps", total=len(deps))
+        task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
             if isinstance(dep, str):
                 target = dep
@@ -117,7 +123,7 @@ def findBuildPath(target):
             break
 
     # Stopping here is named rule was found.
-    if depNames != []:
+    if foundRule is not None:
         depNames = [findBuildPath(dep) for dep in depNames]
         depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
         return {
@@ -139,7 +145,7 @@ def findBuildPath(target):
             foundRule = rule
             break
 
-    if depNames != []:
+    if foundRule is not None:
         depNames = [findBuildPath(dep) for dep in depNames]
         depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
         return {

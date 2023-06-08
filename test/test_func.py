@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import shutil
 from ward import test, raises, fixture
 
 from remake import Builder, Rule, PatternRule, Target
@@ -15,6 +16,23 @@ def ensureEmptyRuleList():
     clearRules()
     yield
     clearRules()
+
+
+@fixture
+def ensureEmptyTmp():
+    try:
+        os.remove("/tmp/ReMakeFile")
+        shutil.rmtree("/tmp/remake_subdir")
+    except FileNotFoundError:
+        pass
+
+    yield
+
+    #try:
+    #    os.remove("/tmp/ReMakeFile")
+    #    shutil.rmtree("/tmp/remake_subdir")
+    #except FileNotFoundError:
+    #    pass
 
 
 @test("Automatically detect dependencies")
@@ -127,7 +145,6 @@ Target("d.foo")
     targets = getTargets()
     clearRules()
     clearTargets()
-    os.remove("/tmp/ReMakeFile")
 
     fooBuilder = Builder(action="")
     r_1 = Rule(target="d", deps=["c", "a2", "b1"], builder=fooBuilder)
@@ -142,7 +159,30 @@ Target("d.foo")
     assert pattern == [r_5]
     assert targets == ["d", "d.foo"]
 
-# Sub ReMakeFile
+
+@test("Sub ReMakeFiles can be called.")
+def test_06_parseSubReMakeFile(_=ensureEmptyRuleList, _2=ensureEmptyTmp):
+    """Sub ReMakeFiles can be called."""
+    ReMakeFile = f"""
+SubReMakeDir("/tmp/remake_subdir")
+"""
+    subReMakeFile = """
+fooBuilder = Builder(action="touch $@")
+Rule(target="foo", deps=[], builder=fooBuilder)
+Target("foo")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+    
+    os.chdir("/tmp")
+    loadScript()
+    assert os.path.isfile("/tmp/remake_subdir/foo")
+
+
 # Pas de cycles
 # Nettoyage des deps (make clean)
 # Prevent nettoyage des deps (NoClean(target))
