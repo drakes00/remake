@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from remake.builders import Builder
-from remake.rules import Rule, PatternRule, clearRules, getRules
-from remake.main import Target, findBuildPath, loadScript, clearTargets, getTargets
+from remake.main import Target, Builder, Rule, PatternRule
+from remake.main import findBuildPath, loadAndBuildFromDirectory, getCurrentContext, getOldContext
+from remake.main import setDryRun, setVerbose, setDevTest, unsetDryRun, unsetVerbose, unsetDevTest
