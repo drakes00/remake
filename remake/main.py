@@ -104,7 +104,7 @@ class Rule():
     _target = None
     _action = None
 
-    def __init__(self, target, deps, builder):
+    def __init__(self, target, deps, builder, ephemeral=False):
         if isinstance(deps, list):
             self._deps = deps
         elif isinstance(deps, str):
@@ -114,7 +114,9 @@ class Rule():
 
         self._target = target
         self._action = builder.parseAction(self._deps, self._target)
-        self._register()
+
+        if not ephemeral:
+            self._register()
 
     def _register(self):
         getCurrentContext().addNamedRule(self)
@@ -214,7 +216,7 @@ class PatternRule(Rule):
             raise NotImplementedError
 
         # Return instancieted rule.
-        return Rule(target=target, deps=deps, builder=Builder(action=action))
+        return Rule(target=target, deps=deps, builder=Builder(action=action), ephemeral=True)
 
 
 class Context():
@@ -224,6 +226,7 @@ class Context():
     _namedRules = None
     _patternRules = None
     _targets = None
+    _deps = None
 
     def __init__(self, cwd):
         self._cwd = cwd
@@ -231,6 +234,7 @@ class Context():
         self._namedRules = []
         self._patternRules = []
         self._targets = []
+        self._deps = None
 
     def addTargets(self, targets):
         """Adds targets to current context."""
@@ -279,6 +283,16 @@ class Context():
         """Clears list of builders of current context."""
         self._builders = []
 
+    @property
+    def deps(self):
+        """Returns dependencies to make target."""
+        return self._deps
+
+    @deps.setter
+    def deps(self, deps):
+        """Modifies the dependencies of the context."""
+        self._deps = deps
+
 
 CONTEXTS = deque()
 CONTEXTS.append(Context(None))
@@ -294,18 +308,20 @@ class SubReMakeDir():
 def loadAndBuildFromDirectory(cwd):
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
-    CONTEXTS.append(Context(cwd))
+    absCwd = os.path.abspath(cwd)
+    CONTEXTS.append(Context(absCwd))
 
     oldCwd = os.getcwd()
-    os.chdir(cwd)
+    os.chdir(absCwd)
 
     loadScript()
-    buildTargets()
+    deps = buildTargets()
 
     os.chdir(oldCwd)
     oldContext = CONTEXTS.pop()
+    oldContext.deps = deps
     if DEV_TEST:
-        DEV_OLD_CONTEXTS[cwd] = oldContext
+        DEV_OLD_CONTEXTS[absCwd] = oldContext
     return oldContext
 
 
@@ -355,6 +371,8 @@ def buildTargets():
                     rule.apply()
                 progress.advance(task)
 
+    return deps
+
 
 def sortDeps(targets):
     """Sorts dependency graph as a reverse level order list."""
@@ -383,45 +401,49 @@ def findBuildPath(target):
 
     depNames = []
     foundRule = None
-    namedRules, patternRules = getCurrentContext().rules
-    for rule in namedRules:
-        occ = re.match(rule.target, target)
-        if occ:
-            # Target found in rule's target.
-            depNames += rule.deps
-            foundRule = rule
-            break
 
-    # Stopping here is named rule was found.
-    if foundRule is not None:
-        depNames = [findBuildPath(dep) for dep in depNames]
-        depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-        return {
-            (target,
-             foundRule): depNames
-        }
+    # Iterate over all contexts from the current context (leaf) to the parents (root).
+    for context in reversed(CONTEXTS):
+        # For each context, look for matching rules.
+        namedRules, patternRules = context.rules
+        for rule in namedRules:
+            occ = re.fullmatch(rule.target, target)
+            if occ:
+                # Target found in rule's target.
+                depNames += rule.deps
+                foundRule = rule
+                break
 
-    foundRule = None
-    for rule in patternRules:
-        regex = rule.target.replace("%", "([a-zA-Z0-9_/-]*)")
-        occ = re.match(regex + "$", target)
-        if occ:
-            # Rule was an anonymous rule (with %).
-            # Expanding rule to generate deps file names.
-            for dep in rule.deps:
-                depName = occ.expand(dep.replace("%", r"\1"))
-                depNames += [depName]
+        # Stopping here is named rule was found.
+        if foundRule is not None:
+            depNames = [findBuildPath(dep) for dep in depNames]
+            depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
+            return {
+                (target,
+                 foundRule): depNames
+            }
 
-            foundRule = rule
-            break
+        foundRule = None
+        for rule in patternRules:
+            regex = rule.target.replace("%", "([a-zA-Z0-9_/-]*)")
+            occ = re.fullmatch(regex + "$", target)
+            if occ:
+                # Rule was an anonymous rule (with %).
+                # Expanding rule to generate deps file names.
+                for dep in rule.deps:
+                    depName = occ.expand(dep.replace("%", r"\1"))
+                    depNames += [depName]
 
-    if foundRule is not None:
-        depNames = [findBuildPath(dep) for dep in depNames]
-        depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-        return {
-            (target,
-             foundRule): depNames
-        }
+                foundRule = rule
+                break
+
+        if foundRule is not None:
+            depNames = [findBuildPath(dep) for dep in depNames]
+            depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
+            return {
+                (target,
+                 foundRule): depNames
+            }
 
     return target
 
