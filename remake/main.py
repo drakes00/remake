@@ -72,9 +72,10 @@ class Builder():
     """Generic builder class."""
     _action = None
 
-    def __init__(self, action):
+    def __init__(self, action, ephemeral=False):
         self._action = action
-        self._register()
+        if not ephemeral:
+            self._register()
 
     def _register(self):
         getCurrentContext().addBuilder(self)
@@ -213,10 +214,10 @@ class PatternRule(Rule):
         if isinstance(self._action, list):
             action = " ".join(self._action).replace("%", basename)
         else:
-            raise NotImplementedError
+            action = self._action
 
         # Return instancieted rule.
-        return Rule(target=target, deps=deps, builder=Builder(action=action), ephemeral=True)
+        return Rule(target=target, deps=deps, builder=Builder(action=action, ephemeral=True), ephemeral=True)
 
 
 class Context():
@@ -235,6 +236,11 @@ class Context():
         self._patternRules = []
         self._targets = []
         self._deps = None
+
+    @property
+    def cwd(self):
+        """Returns the CWD from current context."""
+        return self._cwd
 
     def addTargets(self, targets):
         """Adds targets to current context."""
@@ -310,7 +316,6 @@ def loadAndBuildFromDirectory(cwd):
     associated targets."""
     absCwd = os.path.abspath(cwd)
     CONTEXTS.append(Context(absCwd))
-
     oldCwd = os.getcwd()
     os.chdir(absCwd)
 
@@ -340,36 +345,38 @@ def buildTargets():
         deps += [findBuildPath(target)]
 
     deps = sortDeps(deps)
-    with Progress() as progress:
-        task = progress.add_task("ReMakeFile steps", total=len(deps))
-        for job, dep in enumerate(deps):
-            if isinstance(dep, str):
-                # Ground dependency (tree leaf).
-                if DRY_RUN is True:
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
-                    )
-                elif os.path.isfile(dep):
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
-                    )
-                else:
-                    progress.console.print(
-                        f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{dep}[/light_slate_blue]! Aborting!"
-                    )
-                    raise FileNotFoundError
-                progress.advance(task)
-            elif isinstance(dep, tuple):
-                target, rule = dep
-                if isinstance(rule, PatternRule):
-                    rule = rule.expand(dep[0])
+    if deps:
+        with Progress() as progress:
+            progress.console.print(f"[+] [green bold]Building targets for folder {getCurrentContext().cwd}.[/bold green]")
+            task = progress.add_task("ReMakeFile steps", total=len(deps))
+            for job, dep in enumerate(deps):
+                if isinstance(dep, str):
+                   # Ground dependency (tree leaf).
+                    if DRY_RUN is True:
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
+                        )
+                    elif os.path.isfile(dep):
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
+                        )
+                    else:
+                        progress.console.print(
+                            f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{dep}[/light_slate_blue]! Aborting!"
+                        )
+                        raise FileNotFoundError
+                    progress.advance(task)
+                elif isinstance(dep, tuple):
+                    target, rule = dep
+                    if isinstance(rule, PatternRule):
+                        rule = rule.expand(dep[0])
 
-                progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
-                if VERBOSE:
-                    progress.console.print(rule.action)
-                if DRY_RUN is False:
-                    rule.apply()
-                progress.advance(task)
+                    progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
+                    if VERBOSE:
+                        progress.console.print(rule.action)
+                    if DRY_RUN is False:
+                        rule.apply()
+                    progress.advance(task)
 
     return deps
 

@@ -167,9 +167,9 @@ Target("d.foo")
     assert targets == ["d", "d.foo"]
 
 
-@test("Sub ReMakeFiles can be called.")
+@test("Sub ReMakeFiles can be called")
 def test_06_parseSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
-    """Sub ReMakeFiles can be called."""
+    """Sub ReMakeFiles can be called"""
     ReMakeFile = f"""
 SubReMakeDir("/tmp/remake_subdir")
 """
@@ -215,9 +215,9 @@ Target("d.foo")
     assert targets == ["d", "d.foo"]
 
 
-@test("3 levels of subfile.")
+@test("3 levels of subfile")
 def test_07_3levelsSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
-    """3 levels of subfile."""
+    """3 levels of subfile"""
     ReMakeFile = f"""
 SubReMakeDir("/tmp/remake_subdir")
 """
@@ -304,28 +304,164 @@ Target("c.foo")
     getCurrentContext().clearTargets()
 
     fooBuilder = Builder(action="Magically creating $@ from $<")
-    r_1 = Rule(target="b", deps="a", builder=fooBuilder)
-    r_2 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    r_3 = Rule(target="c", deps="b", builder=fooBuilder)
-    r_4 = PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
+    Rule(target="b", deps="a", builder=fooBuilder)
+    PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    Rule(target="c", deps="b", builder=fooBuilder)
+    PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
     Target("c")
     Target("c.foo")
     
     assert buildTargets() == context.deps
 
 
+@test("Subfile can override rules")
+def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Subfile can override rules"""
+    ReMakeFile = f"""
+fooBuilder = Builder(action="Magically creating $@ from $<")
+Rule(target="b", deps="a", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+SubReMakeDir("/tmp/remake_subdir")
+"""
+    subReMakeFile = """
+Rule(target="b", deps="aa", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+Target("b")
+Target("b.foo")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
 
-#@test("Subfile can override rules")
-#def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
-#    """Subfile can override rules"""
-#    assert False
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+    
+    os.chdir("/tmp")
+    setDryRun()
+    setDevTest()
+    loadAndBuildFromDirectory("/tmp")
+    context = getOldContext("/tmp/remake_subdir")
+    named, pattern = context.rules
+    targets = context.targets
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
 
-# Subfile rules are removed at the end of subfile (parent's rules are kept)
-# Subfile can override rules one after another
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="b", deps="aa", builder=fooBuilder)
+    PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+    Target("b")
+    Target("b.foo")
+    
+    assert buildTargets() == context.deps
 
 
+@test("Subfile rules are removed at the end of subfile (parent's rules are kept)")
+def test_10_overrideParentRulesKeps(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Subfile rules are removed at the end of subfile (parent's rules are kept)"""
+    ReMakeFile = f"""
+fooBuilder = Builder(action="Magically creating $@ from $<")
+Rule(target="b", deps="a", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+SubReMakeDir("/tmp/remake_subdir")
+Target("b")
+Target("b.foo")
+"""
+    subReMakeFile = """
+Rule(target="b", deps="aa", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+    
+    os.chdir("/tmp")
+    setDryRun()
+    setDevTest()
+    loadAndBuildFromDirectory("/tmp")
+    context = getOldContext("/tmp")
+    named, pattern = context.rules
+    targets = context.targets
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="b", deps="a", builder=fooBuilder)
+    PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    Target("b")
+    Target("b.foo")
+    
+    assert buildTargets() == context.deps
+
+
+@test("Subfile can override rules one after another")
+def test_09_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Subfile can override rules one after another"""
+    ReMakeFile = f"""
+fooBuilder = Builder(action="Magically creating $@ from $<")
+Rule(target="b", deps="a", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+SubReMakeDir("/tmp/remake_subdir")
+SubReMakeDir("/tmp/remake_subdir2")
+"""
+    subReMakeFile = """
+Rule(target="b", deps="aa", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+Target("b")
+Target("b.foo")
+"""
+    subReMakeFile2 = """
+Rule(target="b", deps="aaa", builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
+Target("b")
+Target("b.foo")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir2")
+    with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile2)
+    
+    os.chdir("/tmp")
+    setDryRun()
+    setDevTest()
+    loadAndBuildFromDirectory("/tmp")
+    context = getOldContext("/tmp/remake_subdir")
+    context2 = getOldContext("/tmp/remake_subdir2")
+
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="b", deps="aa", builder=fooBuilder)
+    PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+    Target("b")
+    Target("b.foo")
+    assert buildTargets() == context.deps
+
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="b", deps="aaa", builder=fooBuilder)
+    PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
+    Target("b")
+    Target("b.foo")
+    assert buildTargets() == context2.deps
+
+
+# Subfiles can access parent's deps with ../
+# Parents can access subfiles deps
 # Pas de cycles
 # Nettoyage des deps (make clean)
 # Prevent nettoyage des deps (NoClean(target))
 # Environnement avec dossier cache et output
-#test_08_accessParentRulesFromChild()
+# Show dependency tree in terminal
+# Rules are executed in the order of apparition (currently subremake executed first)
