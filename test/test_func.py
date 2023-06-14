@@ -6,7 +6,7 @@ import shutil
 from ward import test, raises, fixture
 
 from remake import Builder, Rule, PatternRule, Target
-from remake import findBuildPath, loadAndBuildFromDirectory, buildTargets, getCurrentContext, getOldContext
+from remake import findBuildPath, executeReMakeFileFromDirectory, generateDependencyList, getCurrentContext, getOldContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
 TMP_FILE = "/tmp/remake.tmp"
@@ -146,7 +146,7 @@ Target("d.foo")
     
     os.chdir("/tmp")
     setDryRun()
-    context = loadAndBuildFromDirectory("/tmp")
+    context = executeReMakeFileFromDirectory("/tmp")
     named, pattern = context.rules
     targets = context.targets
     getCurrentContext().clearRules()
@@ -193,7 +193,7 @@ Target("d.foo")
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
     named, pattern = context.rules
     targets = context.targets
@@ -248,7 +248,7 @@ Target("d.foo")
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir2")
     named, pattern = context.rules
     targets = context.targets
@@ -296,7 +296,7 @@ Target("c.foo")
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
     named, pattern = context.rules
     targets = context.targets
@@ -311,7 +311,7 @@ Target("c.foo")
     Target("c")
     Target("c.foo")
     
-    assert buildTargets() == context.deps
+    assert generateDependencyList() == context.deps
 
 
 @test("Subfile can override rules")
@@ -339,7 +339,7 @@ Target("b.foo")
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
     named, pattern = context.rules
     targets = context.targets
@@ -352,7 +352,7 @@ Target("b.foo")
     Target("b")
     Target("b.foo")
     
-    assert buildTargets() == context.deps
+    assert generateDependencyList() == context.deps
 
 
 @test("Subfile rules are removed at the end of subfile (parent's rules are kept)")
@@ -380,7 +380,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp")
     named, pattern = context.rules
     targets = context.targets
@@ -393,11 +393,11 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     Target("b")
     Target("b.foo")
     
-    assert buildTargets() == context.deps
+    assert generateDependencyList() == context.deps
 
 
 @test("Subfile can override rules one after another")
-def test_09_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_11_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules one after another"""
     ReMakeFile = f"""
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -432,7 +432,7 @@ Target("b.foo")
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
-    loadAndBuildFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
     context2 = getOldContext("/tmp/remake_subdir2")
 
@@ -444,7 +444,7 @@ Target("b.foo")
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     Target("b")
     Target("b.foo")
-    assert buildTargets() == context.deps
+    assert generateDependencyList() == context.deps
 
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
@@ -454,7 +454,7 @@ Target("b.foo")
     PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
     Target("b")
     Target("b.foo")
-    assert buildTargets() == context2.deps
+    assert generateDependencyList() == context2.deps
 
 
 # Subfiles can access parent's deps with ../

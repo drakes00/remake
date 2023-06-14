@@ -13,6 +13,7 @@ from rich.progress import Progress
 VERBOSE = False
 DRY_RUN = False
 DEV_TEST = False
+CLEAN = False
 
 
 def setDryRun():
@@ -33,6 +34,12 @@ def setDevTest():
     DEV_TEST = True
 
 
+def setClean():
+    """Sets run to clean mode."""
+    global CLEAN
+    CLEAN = True
+
+
 def unsetDryRun():
     """Sets run to NOT dry run mode."""
     global DRY_RUN
@@ -50,6 +57,12 @@ def unsetDevTest():
     global DEV_TEST, DEV_OLD_CONTEXTS
     DEV_TEST = False
     DEV_OLD_CONTEXTS = {}
+
+
+def unsetClean():
+    """Sets run to NOT clean mode."""
+    global CLEAN
+    CLEAN = False
 
 
 def getOldContext(cwd):
@@ -308,10 +321,10 @@ DEV_OLD_CONTEXTS = {}
 class SubReMakeDir():
     """Instanciate a sub context for a call to a sub ReMakeFile."""
     def __init__(self, subDir):
-        loadAndBuildFromDirectory(subDir)
+        executeReMakeFileFromDirectory(subDir)
 
 
-def loadAndBuildFromDirectory(cwd):
+def executeReMakeFileFromDirectory(cwd):
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
     absCwd = os.path.abspath(cwd)
@@ -320,7 +333,11 @@ def loadAndBuildFromDirectory(cwd):
     os.chdir(absCwd)
 
     loadScript()
-    deps = buildTargets()
+    deps = generateDependencyList()
+    if CLEAN and deps:
+        cleanTargets(deps)
+    elif not CLEAN and deps:
+        buildTargets(deps)
 
     os.chdir(oldCwd)
     oldContext = CONTEXTS.pop()
@@ -338,72 +355,19 @@ def loadScript():
     exec(script)
 
 
-def buildTargets():
-    """Builds files marked as targets from their dependencies."""
+def generateDependencyList():
+    """Generates and sorts dependency list."""
     deps = []
     for target in getCurrentContext().targets:
         deps += [findBuildPath(target)]
 
     deps = sortDeps(deps)
-    if deps:
-        with Progress() as progress:
-            progress.console.print(f"[+] [green bold]Building targets for folder {getCurrentContext().cwd}.[/bold green]")
-            task = progress.add_task("ReMakeFile steps", total=len(deps))
-            for job, dep in enumerate(deps):
-                if isinstance(dep, str):
-                   # Ground dependency (tree leaf).
-                    if DRY_RUN is True:
-                        progress.console.print(
-                            f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
-                        )
-                    elif os.path.isfile(dep):
-                        progress.console.print(
-                            f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
-                        )
-                    else:
-                        progress.console.print(
-                            f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{dep}[/light_slate_blue]! Aborting!"
-                        )
-                        raise FileNotFoundError
-                    progress.advance(task)
-                elif isinstance(dep, tuple):
-                    target, rule = dep
-                    if isinstance(rule, PatternRule):
-                        rule = rule.expand(dep[0])
-
-                    progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
-                    if VERBOSE:
-                        progress.console.print(rule.action)
-                    if DRY_RUN is False:
-                        rule.apply()
-                    progress.advance(task)
-
     return deps
-
-
-def sortDeps(targets):
-    """Sorts dependency graph as a reverse level order list."""
-    tmpQueue = deque()
-    ret = deque()
-
-    for target in targets[::-1]:
-        tmpQueue.append(target)
-
-        while tmpQueue:
-            node = tmpQueue.popleft()
-            if isinstance(node, str):
-                ret.appendleft(node)
-            elif isinstance(node, dict):
-                ret.appendleft(list(node.keys())[0])
-                for dep in list(node.values())[0]:
-                    tmpQueue.append(dep)
-
-    return ret
 
 
 def findBuildPath(target):
     """Constructs dependency graph from registered rules."""
-    if os.path.isfile(target):
+    if os.path.isfile(target) and not CLEAN:
         return target
 
     depNames = []
@@ -455,6 +419,90 @@ def findBuildPath(target):
     return target
 
 
+def sortDeps(targets):
+    """Sorts dependency graph as a reverse level order list."""
+    tmpQueue = deque()
+    ret = deque()
+
+    for target in targets[::-1]:
+        tmpQueue.append(target)
+
+        while tmpQueue:
+            node = tmpQueue.popleft()
+            if isinstance(node, str):
+                ret.appendleft(node)
+            elif isinstance(node, dict):
+                ret.appendleft(list(node.keys())[0])
+                for dep in list(node.values())[0]:
+                    tmpQueue.append(dep)
+
+    return ret
+
+
+def cleanTargets(deps):
+    """Builds files marked as targets from their dependencies."""
+    with Progress() as progress:
+        progress.console.print(f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]")
+        task = progress.add_task("ReMakeFile steps", total=len(deps))
+        for job, dep in enumerate(deps):
+            if isinstance(dep, str):
+                # Ground dependency (tree leaf).
+                # Let's not delete a ground dependency..
+                progress.advance(task)
+            elif isinstance(dep, tuple):
+                target, rule = dep
+                if isinstance(rule, PatternRule):
+                    rule = rule.expand(dep[0])
+
+                if os.path.isfile(target):
+                    progress.console.print(
+                        f"[{job+1}/{len(deps)}] [[bold plum1]CLEAN[/bold plum1]] Cleaning dependency {target}."
+                    )
+                    os.remove(target)
+                progress.advance(task)
+
+    return deps
+
+
+def buildTargets(deps):
+    """Builds files marked as targets from their dependencies."""
+    with Progress() as progress:
+        progress.console.print(f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]")
+        task = progress.add_task("ReMakeFile steps", total=len(deps))
+        for job, dep in enumerate(deps):
+            if isinstance(dep, str):
+                # Ground dependency (tree leaf).
+                if DRY_RUN is True:
+                    progress.console.print(
+                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
+                    )
+                elif os.path.isfile(dep):
+                    progress.console.print(
+                        f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
+                    )
+                else:
+                    progress.console.print(
+                        f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{dep}[/light_slate_blue]! Aborting!"
+                    )
+                    raise FileNotFoundError
+                progress.advance(task)
+            elif isinstance(dep, tuple):
+                target, rule = dep
+                if isinstance(rule, PatternRule):
+                    rule = rule.expand(dep[0])
+
+                if DRY_RUN:
+                    progress.console.print(
+                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.action}"
+                    )
+                else:
+                    progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
+                    rule.apply()
+                progress.advance(task)
+
+    return deps
+
+
 def main():
     """Main funtion of ReMake."""
     argparser = argparse.ArgumentParser(description="ReMake is a make-like tool.")
@@ -468,16 +516,25 @@ def main():
         "--dry-run",
         action="store_true",
     )
+    argparser.add_argument(
+        "-c",
+        "--clean",
+        action="store_true",
+    )
     args = argparser.parse_args()
 
+    # Global arguments handling.
     if args.verbose:
         setVerbose()
     if args.dry_run:
         setDryRun()
         setVerbose()
 
-    loadAndBuildFromDirectory(os.getcwd())
-    buildTargets()
+    # Cleaning handling.
+    if args.clean:
+        setClean()
+
+    executeReMakeFileFromDirectory(os.getcwd())
 
 
 html2pdf_chrome = Builder(
