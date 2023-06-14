@@ -459,8 +459,9 @@ Target("b.foo")
 
 # Subfiles can access parent's deps with ../
 # Parents can access subfiles deps
-# Pas de cycles
 # Nettoyage des deps (make clean)
+# Detection of newer dep to rebuild target (replace os.path.isfile by shouldRebuild function)
+# Pas de cycles
 # Prevent nettoyage des deps (NoClean(target))
 # Environnement avec dossier cache et output
 # Show dependency tree in terminal
