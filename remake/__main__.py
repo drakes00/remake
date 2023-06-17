@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import main
+import remake.main
 
 if __name__ == "__main__":
-    main.main()
+    remake.main.main()

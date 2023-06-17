@@ -43,23 +43,24 @@ def ensureEmptyTmp():
 @test("Automatically detect dependencies")
 def test_01_funDeps(_=ensureCleanContext):
     """Automatically detect dependencies"""
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
     r_1 = Rule(target="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_1): ["b"]}
+    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
     getCurrentContext().clearRules()
 
     # Two files one dependence.
     r_2_1 = Rule(target="a", deps="c", builder=fooBuilder)
     r_2_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_2_1): ["c"]}
-    assert findBuildPath("b") == {("b", r_2_2): ["c"]}
+    assert findBuildPath("a") == {("/tmp/a", r_2_1): ["/tmp/c"]}
+    assert findBuildPath("b") == {("/tmp/b", r_2_2): ["/tmp/c"]}
     getCurrentContext().clearRules()
 
     # One file two dependencies
     r_3_1 = Rule(target="a", deps=["b", "c"], builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_3_1): ["b", "c"]}
+    assert findBuildPath("a") == {("/tmp/a", r_3_1): ["/tmp/b", "/tmp/c"]}
     getCurrentContext().clearRules()
 
     # One file two dependencies with two rules.
@@ -72,7 +73,7 @@ def test_01_funDeps(_=ensureCleanContext):
     # Three levels
     r_5_1 = Rule(target="a", deps="b", builder=fooBuilder)
     r_5_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_5_1): [{("b", r_5_2): ["c"]}]}
+    assert findBuildPath("a") == {("/tmp/a", r_5_1): [{("/tmp/b", r_5_2): ["/tmp/c"]}]}
     getCurrentContext().clearRules()
 
     # Complex
@@ -80,7 +81,7 @@ def test_01_funDeps(_=ensureCleanContext):
     r_6_2 = Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
     r_6_3 = Rule(target="b1", deps=["a1"], builder=fooBuilder)
     r_6_4 = Rule(target="b2", deps=["a1", "a2"], builder=fooBuilder)
-    assert findBuildPath("d") == {("d", r_6_1): [{("c", r_6_2): [{("b1", r_6_3): ["a1"]}, {("b2", r_6_4): ["a1", "a2"]}]}, "a2", {("b1", r_6_3): ["a1"]}]}
+    assert findBuildPath("d") == {("/tmp/d", r_6_1): [{("/tmp/c", r_6_2): [{("/tmp/b1", r_6_3): ["/tmp/a1"]}, {("/tmp/b2", r_6_4): ["/tmp/a1", "/tmp/a2"]}]}, "/tmp/a2", {("/tmp/b1", r_6_3): ["/tmp/a1"]}]}
 
 
 @test("Dependency can appear multiple times in the tree")
@@ -88,9 +89,10 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
+    os.chdir("/tmp")
     r_1 = Rule(target="a", deps=["b", "c"], builder=fooBuilder)
     r_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_1): [{("b", r_2): ["c"]}, "c"]}
+    assert findBuildPath("a") == {("/tmp/a", r_1): [{("/tmp/b", r_2): ["/tmp/c"]}, "/tmp/c"]}
 
 
 @test("Same rule applied twice should be ignored")
@@ -99,9 +101,10 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
+    os.chdir("/tmp")
     r_1 = Rule(target="a", deps="b", builder=fooBuilder)
     r_2 = Rule(target="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("a", r_1): ["b"]}
+    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
 
 
 @test("Rules must make target")
@@ -200,6 +203,7 @@ Target("d.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp/remake_subdir")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     r_1 = Rule(target="d", deps=["c", "a2", "b1"], builder=fooBuilder)
     r_2 = Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
@@ -255,6 +259,7 @@ Target("d.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp/remake_subdir2")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     r_1 = Rule(target="d", deps=["c", "a2", "b1"], builder=fooBuilder)
     r_2 = Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
@@ -279,6 +284,7 @@ fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(target="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
+del fooBuilder
 """
     subReMakeFile = """
 Rule(target="c", deps="b", builder=fooBuilder)
@@ -303,9 +309,11 @@ Target("c.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(target="b", deps="a", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    os.chdir("/tmp/remake_subdir")
     Rule(target="c", deps="b", builder=fooBuilder)
     PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
     Target("c")
@@ -318,10 +326,12 @@ Target("c.foo")
 def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules"""
     ReMakeFile = f"""
+global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(target="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
+del fooBuilder
 """
     subReMakeFile = """
 Rule(target="b", deps="aa", builder=fooBuilder)
@@ -346,7 +356,9 @@ Target("b.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
+    os.chdir("/tmp/remake_subdir")
     Rule(target="b", deps="aa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     Target("b")
@@ -359,14 +371,17 @@ Target("b.foo")
 def test_10_overrideParentRulesKeps(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile rules are removed at the end of subfile (parent's rules are kept)"""
     ReMakeFile = f"""
+global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(target="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 Target("b")
 Target("b.foo")
+del fooBuilder
 """
     subReMakeFile = """
+print(fooBuilder)
 Rule(target="b", deps="aa", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 """
@@ -387,6 +402,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(target="b", deps="a", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
@@ -400,11 +416,13 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 def test_11_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules one after another"""
     ReMakeFile = f"""
+global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(target="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 SubReMakeDir("/tmp/remake_subdir2")
+del fooBuilder
 """
     subReMakeFile = """
 Rule(target="b", deps="aa", builder=fooBuilder)
@@ -439,7 +457,9 @@ Target("b.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
+    os.chdir("/tmp/remake_subdir")
     Rule(target="b", deps="aa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     Target("b")
@@ -449,7 +469,9 @@ Target("b.foo")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
+    os.chdir("/tmp/remake_subdir2")
     Rule(target="b", deps="aaa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
     Target("b")
@@ -457,8 +479,53 @@ Target("b.foo")
     assert generateDependencyList() == context2.deps
 
 
-# Subfiles can access parent's deps with ../
-# Parents can access subfiles deps
+@test("Subfiles can access parent's deps with ../")
+def test_12_accessFilesParentDir(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Subfiles can access parent's deps with ../"""
+    ReMakeFile = f"""
+global fooBuilder
+fooBuilder = Builder(action="Magically creating $@ from $<")
+Rule(target="b", deps="a", builder=fooBuilder)
+PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+SubReMakeDir("/tmp/remake_subdir")
+del fooBuilder
+"""
+    subReMakeFile = """
+Rule(target="c", deps="../b", builder=fooBuilder)
+PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+Target("c")
+Target("c.baz")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+    
+    os.chdir("/tmp")
+    setDryRun()
+    setDevTest()
+    executeReMakeFileFromDirectory("/tmp")
+    context = getOldContext("/tmp/remake_subdir")
+
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    os.chdir("/tmp")
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="b", deps="a", builder=fooBuilder)
+    PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+    os.chdir("/tmp/remake_subdir")
+    Rule(target="c", deps="../b", builder=fooBuilder)
+    PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+    os.chdir("/tmp")
+    Target("remake_subdir/c")
+    Target("remake_subdir/c.baz")
+    assert generateDependencyList() == context.deps
+
+
+# Parents can access subfiles targets
 # Nettoyage des deps (make clean)
 # Detection of newer dep to rebuild target (replace os.path.isfile by shouldRebuild function)
 # Pas de cycles

@@ -129,11 +129,16 @@ class Rule():
         self._target = target
         self._action = builder.parseAction(self._deps, self._target)
 
+        self._expandToAbsPath()
         if not ephemeral:
             self._register()
 
     def _register(self):
         getCurrentContext().addNamedRule(self)
+
+    def _expandToAbsPath(self):
+        self._deps = [os.path.abspath(dep) for dep in self._deps]
+        self._target = os.path.abspath(self._target)
 
     def __eq__(self, other):
         return (self._target, self._deps, self._action) == (other._target, other._deps, other._action)
@@ -214,6 +219,9 @@ class PatternRule(Rule):
 
     def _register(self):
         getCurrentContext().addPatternRule(self)
+
+    def _expandToAbsPath(self):
+        pass
 
     def expand(self, target):
         """Expands pattern rule into named rule according to target's basename
@@ -367,6 +375,7 @@ def generateDependencyList():
 
 def findBuildPath(target):
     """Constructs dependency graph from registered rules."""
+    target = os.path.abspath(target)
     if os.path.isfile(target) and not CLEAN:
         return target
 
