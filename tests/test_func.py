@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import pathlib
 import shutil
 from ward import test, raises, fixture
 
@@ -23,21 +24,32 @@ def ensureCleanContext():
 
 @fixture
 def ensureEmptyTmp():
+    os.chdir("/tmp")
     try:
         os.remove("/tmp/ReMakeFile")
-        shutil.rmtree("/tmp/remake_subdir")
-        shutil.rmtree("/tmp/remake_subdir2")
     except FileNotFoundError:
         pass
+
+    for f in ("/tmp/remake_subdir", "/tmp/remake_subdir2"):
+        try:
+            print(f)
+            shutil.rmtree(f)
+        except FileNotFoundError:
+            pass
 
     yield
+    os.chdir("/tmp")
 
     try:
         os.remove("/tmp/ReMakeFile")
-        shutil.rmtree("/tmp/remake_subdir")
-        shutil.rmtree("/tmp/remake_subdir2")
     except FileNotFoundError:
         pass
+
+    for f in ("/tmp/remake_subdir", "/tmp/remake_subdir2"):
+        try:
+            shutil.rmtree(f)
+        except FileNotFoundError:
+            pass
 
 
 @test("Automatically detect dependencies")
@@ -525,7 +537,68 @@ Target("c.baz")
     assert generateDependencyList() == context.deps
 
 
-# Parents can access subfiles targets
+@test("Parents can access subfiles targets")
+def test_13_parentAccessSubfileTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Parents can access subfiles targets"""
+    ReMakeFile = f"""
+global fooBuilder
+fooBuilder = Builder(action="Magically creating $@ from $<")
+SubReMakeDir("/tmp/remake_subdir")
+Rule(target="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
+PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+Target("c")
+Target("c.baz")
+del fooBuilder
+"""
+    subReMakeFile = """
+Rule(target="b", deps="a", builder=fooBuilder)
+PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+Target("b")
+Target("b.baz")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    os.mkdir("/tmp/remake_subdir")
+    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+        handle.write(subReMakeFile)
+    
+    os.chdir("/tmp")
+    setDryRun()
+    setDevTest()
+    executeReMakeFileFromDirectory("/tmp")
+    context = getOldContext("/tmp")
+
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    os.chdir("/tmp")
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    Rule(target="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
+    PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+    Target("c")
+    Target("c.baz")
+    assert generateDependencyList() == context.deps
+
+
+@test("Can generate all targets from a pattern rule (with a glob call)")
+def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Can generate all targets from a pattern rule (with a glob call)"""
+    os.mkdir("/tmp/remake_subdir")
+    os.mkdir("/tmp/remake_subdir/foo")
+    os.mkdir("/tmp/remake_subdir/foo/bar")
+    open("/tmp/remake_subdir/non.x", "w+")
+    open("/tmp/remake_subdir/foo/a.x", "w+")
+    open("/tmp/remake_subdir/foo/b.x", "w+")
+    open("/tmp/remake_subdir/foo/bar/c.x", "w+")
+    open("/tmp/remake_subdir/foo/bar/d.x", "w+")
+
+    os.chdir("/tmp/remake_subdir/foo")
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    rule = PatternRule(target="%.y", deps="%.x", builder=fooBuilder)
+    assert sorted(rule.allTargets) == sorted([pathlib.Path("a.y"), pathlib.Path("b.y"), pathlib.Path("bar/c.y"), pathlib.Path("bar/d.y")])
+
+
 # Nettoyage des deps (make clean)
 # Detection of newer dep to rebuild target (replace os.path.isfile by shouldRebuild function)
 # Pas de cycles

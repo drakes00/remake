@@ -3,7 +3,9 @@
 """Main funtions of ReMake."""
 
 import argparse
+import glob
 import os
+import pathlib
 import re
 import subprocess
 
@@ -239,6 +241,16 @@ class PatternRule(Rule):
 
         # Return instancieted rule.
         return Rule(target=target, deps=deps, builder=Builder(action=action, ephemeral=True), ephemeral=True)
+
+    @property
+    def allTargets(self):
+        allDeps = []
+        for dep in self._deps:
+            starDep = dep.replace("%", "*")
+            allDeps += glob.glob(f"**/{starDep}", recursive=True)
+
+        suffix = self._target.replace("%", "")
+        return [pathlib.Path(dep).with_suffix(suffix) for dep in allDeps]
 
 
 class Context():
@@ -514,7 +526,7 @@ def buildTargets(deps):
 
 def main():
     """Main funtion of ReMake."""
-    argparser = argparse.ArgumentParser(description="ReMake is a make-like tool.")
+    argparser = argparse.ArgumentParser(prog="remake", description="ReMake is a make-like tool.")
     argparser.add_argument(
         "-v",
         "--verbose",
