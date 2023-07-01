@@ -32,7 +32,7 @@ def ensureEmptyTmp():
 
     for f in ("/tmp/remake_subdir", "/tmp/remake_subdir2"):
         try:
-            print(f)
+            assert f.startswith("/tmp")
             shutil.rmtree(f)
         except FileNotFoundError:
             pass
@@ -47,6 +47,7 @@ def ensureEmptyTmp():
 
     for f in ("/tmp/remake_subdir", "/tmp/remake_subdir2"):
         try:
+            assert f.startswith("/tmp")
             shutil.rmtree(f)
         except FileNotFoundError:
             pass
