@@ -4,7 +4,7 @@
 import os
 from ward import test, fixture, raises
 
-from remake import Builder, Rule, getCurrentContext
+from remake import Builder, Rule, getCurrentContext, setDryRun, unsetDryRun
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -28,14 +28,15 @@ def test_01_builderPyFun():
     def check_foobar(deps, target, _):
         assert isinstance(deps, list)
         assert isinstance(target, str)
-        assert deps == ["bar"]
-        assert target == "foo"
+        assert deps == [TMP_FILE], deps
+        assert target == TMP_FILE
 
+    setDryRun()
     builder = Builder(action=check_foobar)
-    rule = Rule(target="foo", deps="bar", builder=builder)
-    with raises(FileNotFoundError):
-        rule.apply(None)
+    rule = Rule(target=TMP_FILE, deps=TMP_FILE, builder=builder)
+    rule.apply(None)
     getCurrentContext().clearRules()
+    unsetDryRun()
 
 
 @test("Builders can handle shell commands")

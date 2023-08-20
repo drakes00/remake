@@ -159,7 +159,7 @@ class Rule():
             return
 
         for dep in self._deps:
-            if not os.path.isfile(dep):
+            if not DRY_RUN and not os.path.isfile(dep):
                 raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._target}")
 
         try:
@@ -173,7 +173,7 @@ class Rule():
                 check=True,
             )
 
-        if not os.path.isfile(self._target):
+        if not DRY_RUN and not os.path.isfile(self._target):
             raise FileNotFoundError(f"Target {self._target} not created by rule `{self.actionName}`")
 
     @property
