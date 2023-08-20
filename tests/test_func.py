@@ -61,19 +61,32 @@ def test_01_funDeps(_=ensureCleanContext):
 
     # One file one dependence.
     r_1 = Rule(target="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): ["/tmp/b"]
+    }
     getCurrentContext().clearRules()
 
     # Two files one dependence.
     r_2_1 = Rule(target="a", deps="c", builder=fooBuilder)
     r_2_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_2_1): ["/tmp/c"]}
-    assert findBuildPath("b") == {("/tmp/b", r_2_2): ["/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_2_1): ["/tmp/c"]
+    }
+    assert findBuildPath("b") == {
+        ("/tmp/b",
+         r_2_2): ["/tmp/c"]
+    }
     getCurrentContext().clearRules()
 
     # One file two dependencies
     r_3_1 = Rule(target="a", deps=["b", "c"], builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_3_1): ["/tmp/b", "/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_3_1): ["/tmp/b",
+                  "/tmp/c"]
+    }
     getCurrentContext().clearRules()
 
     # One file two dependencies with two rules.
@@ -86,7 +99,13 @@ def test_01_funDeps(_=ensureCleanContext):
     # Three levels
     r_5_1 = Rule(target="a", deps="b", builder=fooBuilder)
     r_5_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_5_1): [{("/tmp/b", r_5_2): ["/tmp/c"]}]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_5_1): [{
+            ("/tmp/b",
+             r_5_2): ["/tmp/c"]
+        }]
+    }
     getCurrentContext().clearRules()
 
     # Complex
@@ -94,7 +113,29 @@ def test_01_funDeps(_=ensureCleanContext):
     r_6_2 = Rule(target="c", deps=["b1", "b2"], builder=fooBuilder)
     r_6_3 = Rule(target="b1", deps=["a1"], builder=fooBuilder)
     r_6_4 = Rule(target="b2", deps=["a1", "a2"], builder=fooBuilder)
-    assert findBuildPath("d") == {("/tmp/d", r_6_1): [{("/tmp/c", r_6_2): [{("/tmp/b1", r_6_3): ["/tmp/a1"]}, {("/tmp/b2", r_6_4): ["/tmp/a1", "/tmp/a2"]}]}, "/tmp/a2", {("/tmp/b1", r_6_3): ["/tmp/a1"]}]}
+    assert findBuildPath("d") == {
+        ("/tmp/d",
+         r_6_1):
+            [
+                {
+                    ("/tmp/c",
+                     r_6_2): [{
+                        ("/tmp/b1",
+                         r_6_3): ["/tmp/a1"]
+                    },
+                              {
+                                  ("/tmp/b2",
+                                   r_6_4): ["/tmp/a1",
+                                            "/tmp/a2"]
+                              }]
+                },
+                "/tmp/a2",
+                {
+                    ("/tmp/b1",
+                     r_6_3): ["/tmp/a1"]
+                }
+            ]
+    }
 
 
 @test("Dependency can appear multiple times in the tree")
@@ -105,7 +146,14 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     os.chdir("/tmp")
     r_1 = Rule(target="a", deps=["b", "c"], builder=fooBuilder)
     r_2 = Rule(target="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): [{("/tmp/b", r_2): ["/tmp/c"]}, "/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): [{
+            ("/tmp/b",
+             r_2): ["/tmp/c"]
+        },
+                "/tmp/c"]
+    }
 
 
 @test("Same rule applied twice should be ignored")
@@ -117,7 +165,10 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     os.chdir("/tmp")
     r_1 = Rule(target="a", deps="b", builder=fooBuilder)
     r_2 = Rule(target="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): ["/tmp/b"]
+    }
 
 
 @test("Rules must make target")
@@ -135,11 +186,11 @@ def test_04_funMakeTarget(_=ensureCleanContext):
     # Ensure rule not making the target file will throw.
     rule = Rule(target=f"{TMP_FILE}", deps=[], builder=fooBuilder)
     with raises(FileNotFoundError):
-        rule.apply()
+        rule.apply(None)
     getCurrentContext().clearRules()
 
     rule = Rule(target=f"{TMP_FILE}", deps=[], builder=touchBuilder)
-    rule.apply()
+    rule.apply(None)
     assert os.path.isfile(TMP_FILE)
     os.remove(TMP_FILE)
 
@@ -159,7 +210,7 @@ Target("d.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     context = executeReMakeFileFromDirectory("/tmp")
@@ -205,7 +256,7 @@ Target("d.foo")
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -261,7 +312,7 @@ Target("d.foo")
     os.mkdir("/tmp/remake_subdir2")
     with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile2)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -311,7 +362,7 @@ Target("c.foo")
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -331,7 +382,7 @@ Target("c.foo")
     PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
     Target("c")
     Target("c.foo")
-    
+
     assert generateDependencyList() == context.deps
 
 
@@ -358,7 +409,7 @@ Target("b.foo")
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -376,7 +427,7 @@ Target("b.foo")
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     Target("b")
     Target("b.foo")
-    
+
     assert generateDependencyList() == context.deps
 
 
@@ -404,7 +455,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -421,7 +472,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
     Target("b")
     Target("b.foo")
-    
+
     assert generateDependencyList() == context.deps
 
 
@@ -459,7 +510,7 @@ Target("b.foo")
     os.mkdir("/tmp/remake_subdir2")
     with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile2)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -515,7 +566,7 @@ Target("c.baz")
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -563,7 +614,7 @@ Target("b.baz")
     os.mkdir("/tmp/remake_subdir")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
-    
+
     os.chdir("/tmp")
     setDryRun()
     setDevTest()
@@ -597,7 +648,12 @@ def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
     os.chdir("/tmp/remake_subdir/foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     rule = PatternRule(target="%.y", deps="%.x", builder=fooBuilder)
-    assert sorted(rule.allTargets) == sorted([pathlib.Path("a.y"), pathlib.Path("b.y"), pathlib.Path("bar/c.y"), pathlib.Path("bar/d.y")])
+    assert sorted(rule.allTargets) == sorted(
+        [pathlib.Path("a.y"),
+         pathlib.Path("b.y"),
+         pathlib.Path("bar/c.y"),
+         pathlib.Path("bar/d.y")]
+    )
 
 
 # Nettoyage des deps (make clean)

@@ -120,7 +120,7 @@ class Rule():
     _target = None
     _action = None
 
-    def __init__(self, target, deps, builder, ephemeral=False):
+    def __init__(self, target, builder, deps=[], ephemeral=False):
         if isinstance(deps, list):
             self._deps = deps
         elif isinstance(deps, str):
@@ -153,7 +153,7 @@ class Rule():
             # When action is a subprocess string list
             return hash(tuple([self._target, *self._deps, *self._action]))
 
-    def apply(self):
+    def apply(self, console):
         """Applies rule's action."""
         if os.path.isfile(self._target):
             return
@@ -163,7 +163,7 @@ class Rule():
                 raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._target}")
 
         try:
-            self._action(self._deps, self._target)
+            self._action(self._deps, self._target, console)
         except TypeError:
             subprocess.run(
                 " ".join(self._action),
@@ -217,7 +217,7 @@ class PatternRule(Rule):
             assert deps.startswith("%")
         else:
             raise NotImplementedError
-        super().__init__(target, deps, builder)
+        super().__init__(target=target, deps=deps, builder=builder)
 
     def _register(self):
         getCurrentContext().addPatternRule(self)
@@ -457,13 +457,15 @@ def sortDeps(targets):
                 for dep in list(node.values())[0]:
                     tmpQueue.append(dep)
 
-    return ret
+    return list(ret)
 
 
 def cleanTargets(deps):
     """Builds files marked as targets from their dependencies."""
     with Progress() as progress:
-        progress.console.print(f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]")
+        progress.console.print(
+            f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
+        )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
             if isinstance(dep, str):
@@ -488,7 +490,9 @@ def cleanTargets(deps):
 def buildTargets(deps):
     """Builds files marked as targets from their dependencies."""
     with Progress() as progress:
-        progress.console.print(f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]")
+        progress.console.print(
+            f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
+        )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
             if isinstance(dep, str):
@@ -508,6 +512,7 @@ def buildTargets(deps):
                     raise FileNotFoundError
                 progress.advance(task)
             elif isinstance(dep, tuple):
+                # Depen with a rule, need to apply the rule.
                 target, rule = dep
                 if isinstance(rule, PatternRule):
                     rule = rule.expand(dep[0])
@@ -518,7 +523,7 @@ def buildTargets(deps):
                     )
                 else:
                     progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
-                    rule.apply()
+                    rule.apply(progress)
                 progress.advance(task)
 
     return deps

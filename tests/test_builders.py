@@ -25,8 +25,7 @@ def checkTmpFile():
 @test("Builders can handle python functions")
 def test_01_builderPyFun():
     """Builders can handle python functions"""
-
-    def check_foobar(deps, target):
+    def check_foobar(deps, target, _):
         assert isinstance(deps, list)
         assert isinstance(target, str)
         assert deps == ["bar"]
@@ -35,7 +34,7 @@ def test_01_builderPyFun():
     builder = Builder(action=check_foobar)
     rule = Rule(target="foo", deps="bar", builder=builder)
     with raises(FileNotFoundError):
-        rule.apply()
+        rule.apply(None)
     getCurrentContext().clearRules()
 
 
@@ -45,7 +44,7 @@ def test_02_builderShell(_=checkTmpFile):
 
     builder = Builder(action=f"touch {TMP_FILE}")
     rule = Rule(target=TMP_FILE, deps=[], builder=builder)
-    rule.apply()
+    rule.apply(None)
     getCurrentContext().clearRules()
 
 
