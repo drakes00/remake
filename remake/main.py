@@ -8,9 +8,11 @@ import os
 import pathlib
 import re
 import subprocess
+import sys
 
 from collections import deque
 from rich.progress import Progress
+from rich.console import Console
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, resetOldContexts
 
@@ -262,9 +264,11 @@ def executeReMakeFileFromDirectory(cwd):
     loadScript()
     deps = generateDependencyList()
     if CLEAN and deps:
-        cleanTargets(deps)
+        # We are in clean mode and there are deps to clean.
+        cleanDeps(deps)
     elif not CLEAN and deps:
-        buildTargets(deps)
+        # We are in build mode and there are deps to build.
+        buildDeps(deps)
 
     os.chdir(oldCwd)
     oldContext = popContext()
@@ -294,8 +298,11 @@ def generateDependencyList():
 
 def findBuildPath(target):
     """Constructs dependency graph from registered rules."""
+    # First converts the target to its absolute path to not mix it up with another file.
     target = os.path.abspath(target)
     if os.path.isfile(target) and not CLEAN:
+        # If the file exists while in build mode, then job is done.
+        # If the file exists while in clean mode, we need to find its deps to be clean as well.
         return target
 
     depNames = []
@@ -305,6 +312,7 @@ def findBuildPath(target):
     for context in reversed(getContexts()):
         # For each context, look for matching rules.
         namedRules, patternRules = context.rules
+        # First with named rules that will directly match the target.
         for rule in namedRules:
             occ = re.fullmatch(rule.target, target)
             if occ:
@@ -313,7 +321,7 @@ def findBuildPath(target):
                 foundRule = rule
                 break
 
-        # Stopping here is named rule was found.
+        # Stopping here as named rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
@@ -323,12 +331,13 @@ def findBuildPath(target):
             }
 
         foundRule = None
+        # Then with pattern rules that are generic.
         for rule in patternRules:
             regex = rule.target.replace("%", "([a-zA-Z0-9_/-]*)")
             occ = re.fullmatch(regex + "$", target)
             if occ:
-                # Rule was an anonymous rule (with %).
-                # Expanding rule to generate deps file names.
+                # Since rule was an anonymous rule (with %),
+                # Expanding the rule to generate deps file names.
                 for dep in rule.deps:
                     depName = occ.expand(dep.replace("%", r"\1"))
                     depNames += [depName]
@@ -336,6 +345,7 @@ def findBuildPath(target):
                 foundRule = rule
                 break
 
+        # Stopping here as pattern rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
@@ -344,16 +354,23 @@ def findBuildPath(target):
                  foundRule): depNames
             }
 
-    return target
+    if CLEAN:
+        # At this point, if in clean mode, then we found a ground dependency that we really don't want to erase.
+        return target
+    else:
+        # However, if in build mode, no rule was found to make target!
+        Console().print(f"[[bold red]STOP[/]] No rule to make {target}")
+        sys.exit(1)
 
 
-def sortDeps(targets):
-    """Sorts dependency graph as a reverse level order list."""
+def sortDeps(deps):
+    """Sorts dependency graph as a reverse level order list.
+    Snippet from: https://www.geeksforgeeks.org/reverse-level-order-traversal/"""
     tmpQueue = deque()
     ret = deque()
 
-    for target in targets[::-1]:
-        tmpQueue.append(target)
+    for dep in deps[::-1]:
+        tmpQueue.append(dep)
 
         while tmpQueue:
             node = tmpQueue.popleft()
@@ -361,13 +378,13 @@ def sortDeps(targets):
                 ret.appendleft(node)
             elif isinstance(node, dict):
                 ret.appendleft(list(node.keys())[0])
-                for dep in list(node.values())[0]:
-                    tmpQueue.append(dep)
+                for ruleDep in list(node.values())[0]:
+                    tmpQueue.append(ruleDep)
 
     return list(ret)
 
 
-def cleanTargets(deps):
+def cleanDeps(deps):
     """Builds files marked as targets from their dependencies."""
     with Progress() as progress:
         progress.console.print(
@@ -394,7 +411,7 @@ def cleanTargets(deps):
     return deps
 
 
-def buildTargets(deps):
+def buildDeps(deps):
     """Builds files marked as targets from their dependencies."""
     with Progress() as progress:
         progress.console.print(
