@@ -162,9 +162,7 @@ class Rule():
             if not DRY_RUN and not os.path.isfile(dep):
                 raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._target}")
 
-        try:
-            self._action(self._deps, self._target, console)
-        except TypeError:
+        if isinstance(self._action, list):
             subprocess.run(
                 " ".join(self._action),
                 shell=True,
@@ -172,6 +170,8 @@ class Rule():
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
+        else:
+            self._action(self._deps, self._target, console)
 
         if not DRY_RUN and not os.path.isfile(self._target):
             raise FileNotFoundError(f"Target {self._target} not created by rule `{self.actionName}`")
