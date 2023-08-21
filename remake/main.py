@@ -12,6 +12,8 @@ import subprocess
 from collections import deque
 from rich.progress import Progress
 
+from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, resetOldContexts
+
 VERBOSE = False
 DRY_RUN = False
 DEV_TEST = False
@@ -56,25 +58,15 @@ def unsetVerbose():
 
 def unsetDevTest():
     """Sets run to NOT development mode."""
-    global DEV_TEST, DEV_OLD_CONTEXTS
+    global DEV_TEST
     DEV_TEST = False
-    DEV_OLD_CONTEXTS = {}
+    resetOldContexts()
 
 
 def unsetClean():
     """Sets run to NOT clean mode."""
     global CLEAN
     CLEAN = False
-
-
-def getOldContext(cwd):
-    """Dev purpose: returns an old context for inspection."""
-    return DEV_OLD_CONTEXTS[cwd]
-
-
-def getCurrentContext():
-    """Returns current context."""
-    return CONTEXTS[-1]
 
 
 class Target():
@@ -253,91 +245,6 @@ class PatternRule(Rule):
         return [pathlib.Path(dep).with_suffix(suffix) for dep in allDeps]
 
 
-class Context():
-    """Class registering a context of execution (builders, rules, targets)."""
-    _cwd = None
-    _builders = None
-    _namedRules = None
-    _patternRules = None
-    _targets = None
-    _deps = None
-
-    def __init__(self, cwd):
-        self._cwd = cwd
-        self._builders = []
-        self._namedRules = []
-        self._patternRules = []
-        self._targets = []
-        self._deps = None
-
-    @property
-    def cwd(self):
-        """Returns the CWD from current context."""
-        return self._cwd
-
-    def addTargets(self, targets):
-        """Adds targets to current context."""
-        if isinstance(targets, list):
-            self._targets += targets
-        else:
-            self._targets += [targets]
-
-    @property
-    def targets(self):
-        """Returns the list of targets to build from current context."""
-        return self._targets
-
-    def clearTargets(self):
-        """Clears list of targets of current context."""
-        self._targets = []
-
-    def addNamedRule(self, rule):
-        """Adds a named rule to current context."""
-        self._namedRules += [rule]
-
-    def addPatternRule(self, rule):
-        """Adds a pattern rule to current context."""
-        self._patternRules += [rule]
-
-    @property
-    def rules(self):
-        """Returns the list of rules from current context."""
-        return (self._namedRules, self._patternRules)
-
-    def clearRules(self):
-        """Clears list of rules of current context."""
-        self._namedRules = []
-        self._patternRules = []
-
-    def addBuilder(self, builder):
-        """Adds a builder to current context."""
-        self._builders += [builder]
-
-    @property
-    def builders(self):
-        """Returns the list of builders from current context."""
-        return self._builders
-
-    def clearBuilders(self):
-        """Clears list of builders of current context."""
-        self._builders = []
-
-    @property
-    def deps(self):
-        """Returns dependencies to make target."""
-        return self._deps
-
-    @deps.setter
-    def deps(self, deps):
-        """Modifies the dependencies of the context."""
-        self._deps = deps
-
-
-CONTEXTS = deque()
-CONTEXTS.append(Context(None))
-DEV_OLD_CONTEXTS = {}
-
-
 class SubReMakeDir():
     """Instanciate a sub context for a call to a sub ReMakeFile."""
     def __init__(self, subDir):
@@ -348,7 +255,7 @@ def executeReMakeFileFromDirectory(cwd):
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
     absCwd = os.path.abspath(cwd)
-    CONTEXTS.append(Context(absCwd))
+    addContext(absCwd)
     oldCwd = os.getcwd()
     os.chdir(absCwd)
 
@@ -360,10 +267,10 @@ def executeReMakeFileFromDirectory(cwd):
         buildTargets(deps)
 
     os.chdir(oldCwd)
-    oldContext = CONTEXTS.pop()
+    oldContext = popContext()
     oldContext.deps = deps
     if DEV_TEST:
-        DEV_OLD_CONTEXTS[absCwd] = oldContext
+        addOldContext(absCwd, oldContext)
     return oldContext
 
 
@@ -395,7 +302,7 @@ def findBuildPath(target):
     foundRule = None
 
     # Iterate over all contexts from the current context (leaf) to the parents (root).
-    for context in reversed(CONTEXTS):
+    for context in reversed(getContexts()):
         # For each context, look for matching rules.
         namedRules, patternRules = context.rules
         for rule in namedRules:
@@ -562,13 +469,6 @@ def main():
 
     executeReMakeFileFromDirectory(os.getcwd())
 
-
-html2pdf_chrome = Builder(
-    action="google-chrome-stable --headless --disable-gpu --run-all-compositor-stages-before-draw --print-to-pdf=$@ $^",
-)
-md2html = Builder(action="pandoc $^ -o $@")
-jinja2 = Builder(action="jinja2 $^ -o $@")
-pdfcrop = Builder(action="pdftk $^ cat 1 output $@")
 
 if __name__ == "__main__":
     main()

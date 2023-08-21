@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
-from ward import test, fixture, raises
+from ward import test, fixture
 
 from remake import Builder, Rule, getCurrentContext, setDryRun, unsetDryRun
 
