@@ -56,6 +56,7 @@ def ensureEmptyTmp():
 @test("Automatically detect dependencies")
 def test_01_funDeps(_=ensureCleanContext):
     """Automatically detect dependencies"""
+    setDevTest()
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
@@ -90,11 +91,11 @@ def test_01_funDeps(_=ensureCleanContext):
     getCurrentContext().clearRules()
 
     # One file two dependencies with two rules.
-    #FIXME Detect ambigous build paths!
-    #r_4_1 = Rule(target="a", deps="b", builder=fooBuilder)
-    #r_4_2 = Rule(target="a", deps="c", builder=fooBuilder)
-    #assert findBuildPath("a") == {("a": ["b", "c"]}
-    #getCurrentContext().clearRules()
+    # FIXME Detect ambigous build paths!
+    # r_4_1 = Rule(target="a", deps="b", builder=fooBuilder)
+    # r_4_2 = Rule(target="a", deps="c", builder=fooBuilder)
+    # assert findBuildPath("a") == {("a": ["b", "c"]}
+    # getCurrentContext().clearRules()
 
     # Three levels
     r_5_1 = Rule(target="a", deps="b", builder=fooBuilder)
@@ -141,6 +142,7 @@ def test_01_funDeps(_=ensureCleanContext):
 @test("Dependency can appear multiple times in the tree")
 def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
+    setDevTest()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     os.chdir("/tmp")
@@ -159,6 +161,7 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
 @test("Same rule applied twice should be ignored")
 def test_03_funSameRuleTwice(_=ensureCleanContext):
     """Same rule applied twice should be ignored"""
+    setDevTest()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
@@ -213,6 +216,7 @@ Target("d.foo")
 
     os.chdir("/tmp")
     setDryRun()
+    setDevTest()
     context = executeReMakeFileFromDirectory("/tmp")
     named, pattern = context.rules
     targets = context.targets

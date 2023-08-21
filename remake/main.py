@@ -357,6 +357,9 @@ def findBuildPath(target):
     if CLEAN:
         # At this point, if in clean mode, then we found a ground dependency that we really don't want to erase.
         return target
+    elif DEV_TEST:
+        # If we are in dev mode, deps don't exit, just assume it's OK.
+        return target
     else:
         # However, if in build mode, no rule was found to make target!
         Console().print(f"[[bold red]STOP[/]] No rule to make {target}")

@@ -60,4 +60,3 @@ def test_03_builderAutoVar():
 
 
 # Présence de builders avec fonctions natives (déplacer, supprimer, etc)
-# Bibliothèque de builders de base (C, Latex, etc)
