@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""ReMake functions to handle contexts."""
 
 from collections import deque
 
@@ -11,7 +12,6 @@ def getOldContext(cwd):
 
 def addOldContext(cwd, context):
     """Dev purpose: adds an old context for inspection."""
-    global DEV_OLD_CONTEXTS
     DEV_OLD_CONTEXTS[cwd] = context
 
 
@@ -33,13 +33,11 @@ def getContexts():
 
 def addContext(cwd):
     """Adds a path to contexts."""
-    global CONTEXTS
     CONTEXTS.append(Context(cwd))
 
 
 def popContext():
     """Pops lats path from contexts."""
-    global CONTEXTS
     return CONTEXTS.pop()
 
 

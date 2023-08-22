@@ -238,6 +238,7 @@ class PatternRule(Rule):
 
     @property
     def allTargets(self):
+        """Returns all possible targets from globing possible dependencies."""
         allDeps = []
         for dep in self._deps:
             starDep = dep.replace("%", "*")
@@ -280,7 +281,7 @@ def executeReMakeFileFromDirectory(cwd):
 
 def loadScript():
     """Loads and execs the ReMakeFile script."""
-    with open("ReMakeFile", "r") as handle:
+    with open("ReMakeFile", "r", encoding="utf-8") as handle:
         script = handle.read()
 
     exec(script)

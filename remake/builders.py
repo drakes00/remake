@@ -1,3 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+"""Default builders for ReMake."""
+
 from remake.main import Builder
 
 html2pdf_chrome = Builder(
