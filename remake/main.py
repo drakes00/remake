@@ -300,10 +300,6 @@ def findBuildPath(target):
     """Constructs dependency graph from registered rules."""
     # First converts the target to its absolute path to not mix it up with another file.
     target = os.path.abspath(target)
-    if os.path.isfile(target) and not CLEAN:
-        # If the file exists while in build mode, then job is done.
-        # If the file exists while in clean mode, we need to find its deps to be clean as well.
-        return target
 
     depNames = []
     foundRule = None
@@ -354,16 +350,32 @@ def findBuildPath(target):
                  foundRule): depNames
             }
 
-    if CLEAN:
-        # At this point, if in clean mode, then we found a ground dependency that we really don't want to erase.
-        return target
-    elif DEV_TEST:
-        # If we are in dev mode, deps don't exit, just assume it's OK.
-        return target
+    # At this point, no rule was found for the target.
+    if os.path.isfile(target):
+        # And target already exists.
+        if CLEAN:
+            # We are attempting to clean an existing target no linked to any rule.
+            # We thus found a ground dependency that we really don't want to erase.
+            return target
+        elif DEV_TEST:
+            # If we are in dev mode, just assume it's OK.
+            return target
+        else:
+            # If the file exists while in build mode, then job is done.
+            return target
+
     else:
-        # However, if in build mode, no rule was found to make target!
-        Console().print(f"[[bold red]STOP[/]] No rule to make {target}")
-        sys.exit(1)
+        if CLEAN:
+            # We are attempting to clean a file that does not exist and not linked to any rule.
+            # This is not supposed to happen.
+            raise ValueError
+        elif DEV_TEST:
+            # If we are in dev mode, deps might not exit, just assume it's OK.
+            return target
+        else:
+            # However, if in build mode, no rule was found to make target!
+            Console().print(f"[[bold red]STOP[/]] No rule to make {target}")
+            sys.exit(1)
 
 
 def sortDeps(deps):
