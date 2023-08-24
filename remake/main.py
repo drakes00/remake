@@ -89,14 +89,14 @@ class Builder():
     def _register(self):
         getCurrentContext().addBuilder(self)
 
-    def parseAction(self, deps, target):
+    def parseAction(self, deps, targets):
         """Parses builder action for automatic variables ($@, etc)."""
         if isinstance(self._action, str):
             ret = self._action
             if deps:
                 ret = ret.replace("$<", " ".join(deps))
                 ret = ret.replace("$^", deps[0])
-            ret = ret.replace("$@", target)
+            ret = ret.replace("$@", " ".join(targets))
             ret = ret.split(" ")
             return ret
 
@@ -111,10 +111,10 @@ class Builder():
 class Rule():
     """Generic rule class."""
     _deps = None
-    _target = None
+    _targets = None
     _action = None
 
-    def __init__(self, target, builder, deps=[], ephemeral=False):
+    def __init__(self, targets, builder, deps=[], ephemeral=False):
         if isinstance(deps, list):
             self._deps = deps
         elif isinstance(deps, str):
@@ -122,9 +122,14 @@ class Rule():
         else:
             raise NotImplementedError
 
-        self._target = target
-        self._action = builder.parseAction(self._deps, self._target)
+        if isinstance(targets, list):
+            self._targets = targets
+        elif isinstance(targets, str):
+            self._targets = [targets]
+        else:
+            raise NotImplementedError
 
+        self._action = builder.parseAction(self._deps, self._targets)
         self._expandToAbsPath()
         if not ephemeral:
             self._register()
@@ -134,22 +139,22 @@ class Rule():
 
     def _expandToAbsPath(self):
         self._deps = [os.path.abspath(dep) for dep in self._deps]
-        self._target = os.path.abspath(self._target)
+        self._targets = [os.path.abspath(target) for target in self._targets]
 
     def __eq__(self, other):
-        return (self._target, self._deps, self._action) == (other._target, other._deps, other._action)
+        return (self._targets, self._deps, self._action) == (other._targets, other._deps, other._action)
 
     def __hash__(self):
         try:
             # When action is a function
-            return hash(tuple([self._target, *self._deps, self._action]))
+            return hash(tuple([tuple(self._targets), *self._deps, self._action]))
         except TypeError:
             # When action is a subprocess string list
-            return hash(tuple([self._target, *self._deps, *self._action]))
+            return hash(tuple([tuple(self._targets), *self._deps, *self._action]))
 
     def apply(self, console):
         """Applies rule's action."""
-        if os.path.isfile(self._target):
+        if all([os.path.isfile(target) for target in self._targets]):
             return
 
         for dep in self._deps:
@@ -165,10 +170,12 @@ class Rule():
                 check=True,
             )
         else:
-            self._action(self._deps, self._target, console)
+            self._action(self._deps, self._targets, console)
 
-        if not DRY_RUN and not os.path.isfile(self._target):
-            raise FileNotFoundError(f"Target {self._target} not created by rule `{self.actionName}`")
+        if not DRY_RUN:
+            for target in self._targets:
+                if not os.path.isfile(target):
+                    raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
 
     @property
     def action(self):
@@ -176,7 +183,7 @@ class Rule():
         if isinstance(self._action, list):
             return " ".join(self._action)
 
-        return f"{self._action}({self._deps}, {self._target})"
+        return f"{self._action}({self._deps}, {self._targets})"
 
     @property
     def actionName(self):
@@ -187,12 +194,12 @@ class Rule():
         if self._action.__doc__ is not None:
             return self._action.__doc__
 
-        return f"{self._action}({self._deps}, {self._target})"
+        return f"{self._action}({self._deps}, {self._targets})"
 
     @property
-    def target(self):
-        """Return rule's target."""
-        return self._target
+    def targets(self):
+        """Return rule's targets."""
+        return self._targets
 
     @property
     def deps(self):
@@ -211,7 +218,7 @@ class PatternRule(Rule):
             assert deps.startswith("%")
         else:
             raise NotImplementedError
-        super().__init__(target=target, deps=deps, builder=builder)
+        super().__init__(targets=target, deps=deps, builder=builder)
 
     def _register(self):
         getCurrentContext().addPatternRule(self)
@@ -223,8 +230,8 @@ class PatternRule(Rule):
         """Expands pattern rule into named rule according to target's basename
         (e.g., `pdflatex %.tex` into `pdflatex main.tex`)."""
         # Recomputing basename to obtain deps.
-        basename = target.replace(self._target.replace("%", ""), "")
-        assert target == self._target.replace("%", basename)
+        basename = target.replace(self._targets[0].replace("%", ""), "")
+        assert target == self._targets[0].replace("%", basename)
 
         # Computing deps and action string
         deps = [dep.replace("%", basename) for dep in self._deps]
@@ -234,7 +241,7 @@ class PatternRule(Rule):
             action = self._action
 
         # Return instancieted rule.
-        return Rule(target=target, deps=deps, builder=Builder(action=action, ephemeral=True), ephemeral=True)
+        return Rule(targets=target, deps=deps, builder=Builder(action=action, ephemeral=True), ephemeral=True)
 
     @property
     def allTargets(self):
@@ -244,7 +251,7 @@ class PatternRule(Rule):
             starDep = dep.replace("%", "*")
             allDeps += glob.glob(f"**/{starDep}", recursive=True)
 
-        suffix = self._target.replace("%", "")
+        suffix = self._targets[0].replace("%", "")
         return [pathlib.Path(dep).with_suffix(suffix) for dep in allDeps]
 
 
@@ -294,6 +301,7 @@ def generateDependencyList():
         deps += [findBuildPath(target)]
 
     deps = sortDeps(deps)
+    deps = optimizeDeps(deps)
     return deps
 
 
@@ -311,45 +319,41 @@ def findBuildPath(target):
         namedRules, patternRules = context.rules
         # First with named rules that will directly match the target.
         for rule in namedRules:
-            occ = re.fullmatch(rule.target, target)
-            if occ:
-                # Target found in rule's target.
-                depNames += rule.deps
-                foundRule = rule
-                break
+            for ruleTarget in rule.targets:
+                occ = re.fullmatch(ruleTarget, target)
+                if occ:
+                    # Target found in rule's target.
+                    depNames += rule.deps
+                    foundRule = rule
+                    break
 
         # Stopping here as named rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {
-                (target,
-                 foundRule): depNames
-            }
+            return {(target, foundRule): depNames}
 
         foundRule = None
         # Then with pattern rules that are generic.
         for rule in patternRules:
-            regex = rule.target.replace("%", "([a-zA-Z0-9_/-]*)")
-            occ = re.fullmatch(regex + "$", target)
-            if occ:
-                # Since rule was an anonymous rule (with %),
-                # Expanding the rule to generate deps file names.
-                for dep in rule.deps:
-                    depName = occ.expand(dep.replace("%", r"\1"))
-                    depNames += [depName]
+            for ruleTarget in rule.targets:
+                regex = ruleTarget.replace("%", "([a-zA-Z0-9_/-]*)")
+                occ = re.fullmatch(regex + "$", target)
+                if occ:
+                    # Since rule was an anonymous rule (with %),
+                    # Expanding the rule to generate deps file names.
+                    for dep in rule.deps:
+                        depName = occ.expand(dep.replace("%", r"\1"))
+                        depNames += [depName]
 
-                foundRule = rule
-                break
+                    foundRule = rule
+                    break
 
         # Stopping here as pattern rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {
-                (target,
-                 foundRule): depNames
-            }
+            return {(target, foundRule): depNames}
 
     # At this point, no rule was found for the target.
     if os.path.isfile(target):
@@ -398,6 +402,53 @@ def sortDeps(deps):
                     tmpQueue.append(ruleDep)
 
     return list(ret)
+
+
+def optimizeDeps(deps):
+    """Removes rules from dependencies list """
+    def _mergeTargetsSameRule(deps):
+        """Remove duplicate calls to a rule that produces multiple dependencies."""
+        ret = []
+        for i in range(1, len(deps)):
+            # Iterates over the dependencies starting from the end to compare with left side of the array.
+            # First element is omitted since their is nothing to the left.
+            target = deps[-i]
+            lhsDeps = deps[:-i]
+
+            # Iterate on other targets on the left-hand side.
+            for otherTarget in lhsDeps:
+                # If target shares a rule with another target, merge them.
+                if isinstance(target, tuple) and isinstance(otherTarget, tuple):
+                    if otherTarget[1] == target[1]:
+                        ret += [target[0]]
+                        break
+            else:
+                ret += [target]
+
+        ret = ret + [deps[0]]  # Put back the first target that was omitted above.
+        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
+        return ret
+
+    def _removeDuplicatesWithNoRules(deps):
+        """Remove duplicate targets that have no associated rule."""
+        ret = []
+        for i in range(1, len(deps)):
+            # Iterates over the dependencies starting from the end to compare with left side of the array.
+            # First element is omitted since their is nothing to the left.
+            target = deps[-i]
+            lhsDeps = deps[:-i]
+
+            # Check if target appears multiple times in the list of dependencies (including if associated with a rule.
+            if target not in lhsDeps and target not in [_[0] for _ in lhsDeps if isinstance(_, tuple)]:
+                ret += [target]
+
+        ret = ret + [deps[0]]  # Put back the first target that was omitted above.
+        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
+        return ret
+
+    deps = _mergeTargetsSameRule(deps)
+    deps = _removeDuplicatesWithNoRules(deps)
+    return deps
 
 
 def cleanDeps(deps):

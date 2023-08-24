@@ -25,15 +25,15 @@ def checkTmpFile():
 @test("Builders can handle python functions")
 def test_01_builderPyFun():
     """Builders can handle python functions"""
-    def check_foobar(deps, target, _):
+    def check_foobar(deps, targets, _):
         assert isinstance(deps, list)
-        assert isinstance(target, str)
+        assert isinstance(targets, list)
         assert deps == [TMP_FILE], deps
-        assert target == TMP_FILE
+        assert targets == [TMP_FILE]
 
     setDryRun()
     builder = Builder(action=check_foobar)
-    rule = Rule(target=TMP_FILE, deps=TMP_FILE, builder=builder)
+    rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=builder)
     rule.apply(None)
     getCurrentContext().clearRules()
     unsetDryRun()
@@ -44,7 +44,7 @@ def test_02_builderShell(_=checkTmpFile):
     """Builders can handle shell commands"""
 
     builder = Builder(action=f"touch {TMP_FILE}")
-    rule = Rule(target=TMP_FILE, deps=[], builder=builder)
+    rule = Rule(targets=TMP_FILE, deps=[], builder=builder)
     rule.apply(None)
     getCurrentContext().clearRules()
 
@@ -54,7 +54,7 @@ def test_03_builderAutoVar():
     """Builders can handle automatic variables ($^, $@)"""
 
     builder = Builder(action="cp $^ $@")
-    rule = Rule(target=TMP_FILE, deps=TMP_FILE, builder=builder)
+    rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=builder)
     assert rule.action == f"cp {TMP_FILE} {TMP_FILE}"
     getCurrentContext().clearRules()
 
