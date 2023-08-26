@@ -16,8 +16,10 @@ TMP_FILE = "/tmp/remake.tmp"
 @fixture
 def ensureCleanContext():
     getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
     yield
     getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
     unsetDryRun()
     unsetDevTest()
 
@@ -62,19 +64,32 @@ def test_01_funDeps(_=ensureCleanContext):
 
     # One file one dependence.
     r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): ["/tmp/b"]
+    }
     getCurrentContext().clearRules()
 
     # Two files one dependence.
     r_2_1 = Rule(targets="a", deps="c", builder=fooBuilder)
     r_2_2 = Rule(targets="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_2_1): ["/tmp/c"]}
-    assert findBuildPath("b") == {("/tmp/b", r_2_2): ["/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_2_1): ["/tmp/c"]
+    }
+    assert findBuildPath("b") == {
+        ("/tmp/b",
+         r_2_2): ["/tmp/c"]
+    }
     getCurrentContext().clearRules()
 
     # One file two dependencies
     r_3_1 = Rule(targets="a", deps=["b", "c"], builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_3_1): ["/tmp/b", "/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_3_1): ["/tmp/b",
+                  "/tmp/c"]
+    }
     getCurrentContext().clearRules()
 
     # One file two dependencies with two rules.
@@ -87,7 +102,13 @@ def test_01_funDeps(_=ensureCleanContext):
     # Three levels
     r_5_1 = Rule(targets="a", deps="b", builder=fooBuilder)
     r_5_2 = Rule(targets="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_5_1): [{("/tmp/b", r_5_2): ["/tmp/c"]}]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_5_1): [{
+            ("/tmp/b",
+             r_5_2): ["/tmp/c"]
+        }]
+    }
     getCurrentContext().clearRules()
 
     # Complex
@@ -124,11 +145,29 @@ def test_01_funDeps(_=ensureCleanContext):
     r_8_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     r_8_2 = Rule(targets="d", deps=["e", "f"], builder=fooBuilder)
     r_8_3 = Rule(targets=["g", "h"], deps=["i", "j"], builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_8_1): ["/tmp/c"]}
-    assert findBuildPath("b") == {("/tmp/b", r_8_1): ["/tmp/c"]}
-    assert findBuildPath("d") == {("/tmp/d", r_8_2): ["/tmp/e", "/tmp/f"]}
-    assert findBuildPath("g") == {("/tmp/g", r_8_3): ["/tmp/i", "/tmp/j"]}
-    assert findBuildPath("h") == {("/tmp/h", r_8_3): ["/tmp/i", "/tmp/j"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_8_1): ["/tmp/c"]
+    }
+    assert findBuildPath("b") == {
+        ("/tmp/b",
+         r_8_1): ["/tmp/c"]
+    }
+    assert findBuildPath("d") == {
+        ("/tmp/d",
+         r_8_2): ["/tmp/e",
+                  "/tmp/f"]
+    }
+    assert findBuildPath("g") == {
+        ("/tmp/g",
+         r_8_3): ["/tmp/i",
+                  "/tmp/j"]
+    }
+    assert findBuildPath("h") == {
+        ("/tmp/h",
+         r_8_3): ["/tmp/i",
+                  "/tmp/j"]
+    }
     getCurrentContext().clearRules()
 
 
@@ -141,7 +180,14 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     os.chdir("/tmp")
     r_1 = Rule(targets="a", deps=["b", "c"], builder=fooBuilder)
     r_2 = Rule(targets="b", deps="c", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): [{("/tmp/b", r_2): ["/tmp/c"]}, "/tmp/c"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): [{
+            ("/tmp/b",
+             r_2): ["/tmp/c"]
+        },
+                "/tmp/c"]
+    }
 
 
 @test("Same rule applied twice should be ignored")
@@ -154,7 +200,10 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     os.chdir("/tmp")
     r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
     r_2 = Rule(targets="a", deps="b", builder=fooBuilder)
-    assert findBuildPath("a") == {("/tmp/a", r_1): ["/tmp/b"]}
+    assert findBuildPath("a") == {
+        ("/tmp/a",
+         r_1): ["/tmp/b"]
+    }
 
 
 @test("Rules must make targets")

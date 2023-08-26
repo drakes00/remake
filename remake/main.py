@@ -331,7 +331,10 @@ def findBuildPath(target):
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {(target, foundRule): depNames}
+            return {
+                (target,
+                 foundRule): depNames
+            }
 
         foundRule = None
         # Then with pattern rules that are generic.
@@ -353,7 +356,10 @@ def findBuildPath(target):
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
             depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
-            return {(target, foundRule): depNames}
+            return {
+                (target,
+                 foundRule): depNames
+            }
 
     # At this point, no rule was found for the target.
     if os.path.isfile(target):
@@ -409,6 +415,9 @@ def optimizeDeps(deps):
     def _mergeTargetsSameRule(deps):
         """Remove duplicate calls to a rule that produces multiple dependencies."""
         ret = []
+        if len(deps) < 2:
+            return deps
+
         for i in range(1, len(deps)):
             # Iterates over the dependencies starting from the end to compare with left side of the array.
             # First element is omitted since their is nothing to the left.
@@ -432,6 +441,9 @@ def optimizeDeps(deps):
     def _removeDuplicatesWithNoRules(deps):
         """Remove duplicate targets that have no associated rule."""
         ret = []
+        if len(deps) < 2:
+            return deps
+
         for i in range(1, len(deps)):
             # Iterates over the dependencies starting from the end to compare with left side of the array.
             # First element is omitted since their is nothing to the left.
