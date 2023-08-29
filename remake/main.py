@@ -368,8 +368,8 @@ def findBuildPath(target):
             # We are attempting to clean an existing target no linked to any rule.
             # We thus found a ground dependency that we really don't want to erase.
             return target
-        elif DEV_TEST:
-            # If we are in dev mode, just assume it's OK.
+        elif DRY_RUN:
+            # If we are in dry run mode, just assume it's OK.
             return target
         else:
             # If the file exists while in build mode, then job is done.
@@ -380,7 +380,7 @@ def findBuildPath(target):
             # We are attempting to clean a file that does not exist and not linked to any rule.
             # This is not supposed to happen.
             raise ValueError
-        elif DEV_TEST:
+        elif DRY_RUN:
             # If we are in dev mode, deps might not exit, just assume it's OK.
             return target
         else:
@@ -412,29 +412,43 @@ def sortDeps(deps):
 
 def optimizeDeps(deps):
     """Removes rules from dependencies list """
-    def _mergeTargetsSameRule(deps):
+    def _mergeTargetsSameRule(origDeps):
         """Remove duplicate calls to a rule that produces multiple dependencies."""
         ret = []
-        if len(deps) < 2:
-            return deps
+        if len(origDeps) < 2:
+            return origDeps
 
-        for i in range(1, len(deps)):
+        # We will remove items from deps as we process the list so let's make a copy first.
+        deps = origDeps.copy()
+
+        # Keep going as long a there are deps still not processed.
+        while len(deps) > 0:
             # Iterates over the dependencies starting from the end to compare with left side of the array.
             # First element is omitted since their is nothing to the left.
-            target = deps[-i]
-            lhsDeps = deps[:-i]
+            target = deps[-1]
+            lhsDeps = deps[:-1]
 
-            # Iterate on other targets on the left-hand side.
-            for otherTarget in lhsDeps:
-                # If target shares a rule with another target, merge them.
-                if isinstance(target, tuple) and isinstance(otherTarget, tuple):
-                    if otherTarget[1] == target[1]:
-                        ret += [target[0]]
-                        break
+            if isinstance(target, tuple):
+                # If target is a tuple, there is a rule associated.
+                # Find all other targets that share the same rule.
+                otherTargets = list(filter(lambda _: isinstance(_, tuple) and _[1] == target[1], lhsDeps))
+                if otherTargets:
+                    # If there are other targets, merge them.
+                    allTargetsSameRule = [_[0] for _ in otherTargets] + [target[0]]
+                    allTargetsSameRule = tuple(
+                        [i for n,
+                         i in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]]
+                    )
+
+                    ret += [(allTargetsSameRule, target[1])]
+                    for otherTarget in otherTargets:
+                        deps.remove(otherTarget)
+                else:
+                    ret += [target]
             else:
                 ret += [target]
+            del deps[-1]
 
-        ret = ret + [deps[0]]  # Put back the first target that was omitted above.
         ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
         return ret
 
@@ -465,6 +479,13 @@ def optimizeDeps(deps):
 
 def cleanDeps(deps):
     """Builds files marked as targets from their dependencies."""
+    def _cleanDep(target):
+        if os.path.isfile(target):
+            progress.console.print(
+                f"[{job+1}/{len(deps)}] [[bold plum1]CLEAN[/bold plum1]] Cleaning dependency {target}."
+            )
+            os.remove(target)
+
     with Progress() as progress:
         progress.console.print(
             f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
@@ -480,11 +501,11 @@ def cleanDeps(deps):
                 if isinstance(rule, PatternRule):
                     rule = rule.expand(dep[0])
 
-                if os.path.isfile(target):
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]CLEAN[/bold plum1]] Cleaning dependency {target}."
-                    )
-                    os.remove(target)
+                if isinstance(target, tuple):
+                    for tmp in target:
+                        _cleanDep(tmp)
+                else:
+                    _cleanDep(target)
                 progress.advance(task)
 
     return deps
@@ -492,6 +513,7 @@ def cleanDeps(deps):
 
 def buildDeps(deps):
     """Builds files marked as targets from their dependencies."""
+    rulesApplied = []
     with Progress() as progress:
         progress.console.print(
             f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
@@ -515,7 +537,7 @@ def buildDeps(deps):
                     raise FileNotFoundError
                 progress.advance(task)
             elif isinstance(dep, tuple):
-                # Depen with a rule, need to apply the rule.
+                # Dependency with a rule, need to apply the rule.
                 target, rule = dep
                 if isinstance(rule, PatternRule):
                     rule = rule.expand(dep[0])
@@ -527,9 +549,12 @@ def buildDeps(deps):
                 else:
                     progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
                     rule.apply(progress)
+
+                # Keep track of the rules applied for return.
+                rulesApplied += [(target, rule)]
                 progress.advance(task)
 
-    return deps
+    return rulesApplied
 
 
 def main():

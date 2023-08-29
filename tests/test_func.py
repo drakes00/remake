@@ -7,7 +7,7 @@ import shutil
 from ward import test, raises, fixture
 
 from remake import Builder, Rule, PatternRule, Target
-from remake import findBuildPath, executeReMakeFileFromDirectory, generateDependencyList, getCurrentContext, getOldContext
+from remake import findBuildPath, executeReMakeFileFromDirectory, buildDeps, cleanDeps, generateDependencyList, getCurrentContext, getOldContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
 TMP_FILE = "/tmp/remake.tmp"
@@ -59,6 +59,7 @@ def ensureEmptyTmp():
 def test_01_funDeps(_=ensureCleanContext):
     """Automatically detect dependencies"""
     setDevTest()
+    setDryRun()
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
@@ -175,6 +176,7 @@ def test_01_funDeps(_=ensureCleanContext):
 def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
     setDevTest()
+    setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     os.chdir("/tmp")
@@ -194,6 +196,7 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
 def test_03_funSameRuleTwice(_=ensureCleanContext):
     """Same rule applied twice should be ignored"""
     setDevTest()
+    setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
@@ -692,48 +695,83 @@ def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
     )
 
 
-@test("Rule with multiple targets is executed only once to make all targets")
-def test_15_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmptyTmp):
-    """Rule with multiple targets is executed only once to make all targets"""
-    setDevTest()
+@test("Automatically detect dependencies with multiple targets")
+def test_15_funDepsMultipleTargets(_=ensureCleanContext):
+    """Automatically detect dependencies with multiple targets"""
+    setDryRun()
+    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # Two targets same rule.
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     Target("a")
     Target("b")
-    assert generateDependencyList() == ["/tmp/c", ("/tmp/a", r_1), "/tmp/b"]
+    assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_1)]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Two targets same rule (no deps).
+    r_2 = Rule(targets=["a", "b"], builder=fooBuilder)
+    Target("a")
+    Target("b")
+    assert generateDependencyList() == [(("/tmp/a", "/tmp/b"), r_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Three targets same rule.
-    r_2 = Rule(targets=["a", "b", "c"], deps="d", builder=fooBuilder)
+    r_3 = Rule(targets=["a", "b", "c"], deps="d", builder=fooBuilder)
     Target("a")
     Target("b")
     Target("c")
-    assert generateDependencyList() == ["/tmp/d", ("/tmp/a", r_2), "/tmp/b", "/tmp/c"]
+    assert generateDependencyList() == ["/tmp/d", (("/tmp/a", "/tmp/b", "/tmp/c"), r_3)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two targets two same rules.
-    r_3_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    r_3_2 = Rule(targets=["d", "e"], deps="f", builder=fooBuilder)
+    r_4_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_4_2 = Rule(targets=["d", "e"], deps="f", builder=fooBuilder)
     Target("a")
     Target("b")
     Target("d")
     Target("e")
-    assert generateDependencyList() == ["/tmp/c", ("/tmp/a", r_3_1), "/tmp/b", "/tmp/f", ("/tmp/d", r_3_2), "/tmp/e"]
+    assert generateDependencyList() == [
+        "/tmp/c",
+        (("/tmp/a",
+          "/tmp/b"),
+         r_4_1),
+        "/tmp/f",
+        (("/tmp/d",
+          "/tmp/e"),
+         r_4_2)
+    ]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two levels.
-    r_4_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    r_4_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
+    r_5_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_5_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
     Target("a")
     Target("b")
     Target("d")
     Target("e")
-    assert generateDependencyList() == ["/tmp/c", ("/tmp/a", r_4_1), "/tmp/b", ("/tmp/d", r_4_2), "/tmp/e"]
+    assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_5_1), (("/tmp/d", "/tmp/e"), r_5_2)]
+
+
+@test("Rule with multiple targets is executed only once to make all targets")
+def test_16_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Rule with multiple targets is executed only once to make all targets"""
+    setDevTest()
+    setDryRun()
+    os.chdir("/tmp")
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+    r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
+    Target("a")
+    Target("b")
+    Target("d")
+    Target("e")
+    os.chdir("/tmp")
+    assert buildDeps(generateDependencyList()) == [(("/tmp/a", "/tmp/b"), r_1), (("/tmp/d", "/tmp/e"), r_2)]
 
 
 # Nettoyage des deps (make clean)
