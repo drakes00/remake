@@ -28,7 +28,7 @@ def test_01_builderPyFun():
     def check_foobar(deps, targets, _):
         assert isinstance(deps, list)
         assert isinstance(targets, list)
-        assert deps == [TMP_FILE], deps
+        assert deps == [TMP_FILE]
         assert targets == [TMP_FILE]
 
     setDryRun()
@@ -57,6 +57,29 @@ def test_03_builderAutoVar():
     rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=builder)
     assert rule.action == f"cp {TMP_FILE} {TMP_FILE}"
     getCurrentContext().clearRules()
+
+
+@test("Builders can handle kwargs.")
+def test_04_buildersKwargs():
+    """Builders can handle kwargs."""
+    def check_foobar(deps, targets, _, myArg=None):
+        assert isinstance(deps, list)
+        assert isinstance(targets, list)
+        assert deps in (["/No Arg"], ["/With Arg"])
+        assert targets in (["/No Arg"], ["/With Arg"])
+        if targets == ["/No Arg"]:
+            assert myArg is None
+        elif targets == ["/With Arg"]:
+            assert myArg == "Cool"
+
+    setDryRun()
+    builder = Builder(action=check_foobar)
+    r_1 = Rule(targets="/No Arg", deps="/No Arg", builder=builder)
+    r_2 = Rule(targets="/With Arg", deps="/With Arg", myArg="Cool", builder=builder)
+    r_1.apply(None)
+    r_2.apply(None)
+    getCurrentContext().clearRules()
+    unsetDryRun()
 
 
 # Présence de builders avec fonctions natives (déplacer, supprimer, etc)

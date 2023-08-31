@@ -15,6 +15,8 @@ TMP_FILE = "/tmp/remake.tmp"
 
 @fixture
 def ensureCleanContext():
+    """Cleans rules and targets and unsets dev mode and dry mode between tests."""
+
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
     yield
@@ -26,6 +28,8 @@ def ensureCleanContext():
 
 @fixture
 def ensureEmptyTmp():
+    """Ensures that all ReMake related files created in /tmp are emptied between tests."""
+
     os.chdir("/tmp")
     try:
         os.remove("/tmp/ReMakeFile")
@@ -58,6 +62,7 @@ def ensureEmptyTmp():
 @test("Automatically detect dependencies")
 def test_01_funDeps(_=ensureCleanContext):
     """Automatically detect dependencies"""
+
     setDevTest()
     setDryRun()
     os.chdir("/tmp")
@@ -175,6 +180,7 @@ def test_01_funDeps(_=ensureCleanContext):
 @test("Dependency can appear multiple times in the tree")
 def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
+
     setDevTest()
     setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -195,6 +201,7 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
 @test("Same rule applied twice should be ignored")
 def test_03_funSameRuleTwice(_=ensureCleanContext):
     """Same rule applied twice should be ignored"""
+
     setDevTest()
     setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -212,6 +219,7 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
 @test("Rules must make targets")
 def test_04_funMakeTarget(_=ensureCleanContext):
     """Rules must make targets"""
+
     fooBuilder = Builder(action="ls > /dev/null")
     touchBuilder = Builder(action="touch $@")
 
@@ -236,6 +244,7 @@ def test_04_funMakeTarget(_=ensureCleanContext):
 @test("ReMakeFile can be parsed")
 def test_05_parseReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
     """ReMakeFile can be parsed"""
+
     ReMakeFile = """
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="d", deps=["c", "a2", "b1"], builder=fooBuilder)
@@ -276,6 +285,7 @@ Target("d.foo")
 @test("Sub ReMakeFiles can be called")
 def test_06_parseSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Sub ReMakeFiles can be called"""
+
     ReMakeFile = f"""
 SubReMakeDir("/tmp/remake_subdir")
 """
@@ -325,6 +335,7 @@ Target("d.foo")
 @test("3 levels of subfile")
 def test_07_3levelsSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
     """3 levels of subfile"""
+
     ReMakeFile = f"""
 SubReMakeDir("/tmp/remake_subdir")
 """
@@ -381,6 +392,7 @@ Target("d.foo")
 @test("Parent rules and builders are accessible from subfile if not overriden")
 def test_08_accessParentRulesFromChild(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Parent rules and builders are accessible from subfile if not overriden"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -428,6 +440,7 @@ Target("c.foo")
 @test("Subfile can override rules")
 def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -473,6 +486,7 @@ Target("b.foo")
 @test("Subfile rules are removed at the end of subfile (parent's rules are kept)")
 def test_10_overrideParentRulesKeps(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile rules are removed at the end of subfile (parent's rules are kept)"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -518,6 +532,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 @test("Subfile can override rules one after another")
 def test_11_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules one after another"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -585,6 +600,7 @@ Target("b.foo")
 @test("Subfiles can access parent's deps with ../")
 def test_12_accessFilesParentDir(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfiles can access parent's deps with ../"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -631,6 +647,7 @@ Target("c.baz")
 @test("Parents can access subfiles targets")
 def test_13_parentAccessSubfileTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Parents can access subfiles targets"""
+
     ReMakeFile = f"""
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -675,6 +692,7 @@ Target("b.baz")
 @test("Can generate all targets from a pattern rule (with a glob call)")
 def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Can generate all targets from a pattern rule (with a glob call)"""
+
     os.mkdir("/tmp/remake_subdir")
     os.mkdir("/tmp/remake_subdir/foo")
     os.mkdir("/tmp/remake_subdir/foo/bar")
@@ -698,6 +716,7 @@ def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
 @test("Automatically detect dependencies with multiple targets")
 def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     """Automatically detect dependencies with multiple targets"""
+
     setDryRun()
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -760,6 +779,7 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
 @test("Rule with multiple targets is executed only once to make all targets")
 def test_16_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Rule with multiple targets is executed only once to make all targets"""
+
     setDevTest()
     setDryRun()
     os.chdir("/tmp")

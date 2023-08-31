@@ -113,8 +113,9 @@ class Rule():
     _deps = None
     _targets = None
     _action = None
+    _kwargs = None
 
-    def __init__(self, targets, builder, deps=[], ephemeral=False):
+    def __init__(self, targets, builder, deps=[], ephemeral=False, **kwargs):
         if isinstance(deps, list):
             self._deps = deps
         elif isinstance(deps, str):
@@ -131,6 +132,7 @@ class Rule():
 
         self._action = builder.parseAction(self._deps, self._targets)
         self._expandToAbsPath()
+        self._kwargs = kwargs
         if not ephemeral:
             self._register()
 
@@ -170,7 +172,7 @@ class Rule():
                 check=True,
             )
         else:
-            self._action(self._deps, self._targets, console)
+            self._action(self._deps, self._targets, console, **self._kwargs)
 
         if not DRY_RUN:
             for target in self._targets:
