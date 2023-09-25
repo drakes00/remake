@@ -47,6 +47,7 @@ class Context():
     _builders = None
     _namedRules = None
     _patternRules = None
+    _executedRules = None
     _targets = None
     _deps = None
 
@@ -55,6 +56,7 @@ class Context():
         self._builders = []
         self._namedRules = []
         self._patternRules = []
+        self._executedRules = []
         self._targets = []
         self._deps = None
 
@@ -96,6 +98,16 @@ class Context():
         """Clears list of rules of current context."""
         self._namedRules = []
         self._patternRules = []
+
+    @property
+    def executedRules(self):
+        """Returns the list of executed rules."""
+        return self._executedRules
+
+    @executedRules.setter
+    def executedRules(self, rules):
+        """Modifies the executed rules of the context."""
+        self._executedRules = rules
 
     def addBuilder(self, builder):
         """Adds a builder to current context."""

@@ -4,6 +4,7 @@
 import os
 import pathlib
 import shutil
+import time
 from ward import test, raises, fixture
 
 from remake import Builder, Rule, PatternRule, Target
@@ -794,8 +795,98 @@ def test_16_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     assert buildDeps(generateDependencyList()) == [(("/tmp/a", "/tmp/b"), r_1), (("/tmp/d", "/tmp/e"), r_2)]
 
 
-# Nettoyage des deps (make clean)
-# Detection of newer dep to rebuild target (replace os.path.isfile by shouldRebuild function)
+@test("Dependencies can be cleaned")
+def test_17_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Dependencies can be cleaned"""
+
+    touchBuilder = Builder(action="touch $@")
+
+    # Ensure file does not already exist.
+    try:
+        os.remove(f"{TMP_FILE}")
+    except FileNotFoundError:
+        pass
+
+    r_1 = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
+    Target(TMP_FILE)
+    assert buildDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
+    assert os.path.isfile(TMP_FILE)
+    assert cleanDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
+    assert not os.path.isfile(TMP_FILE)
+
+
+@test("Detection of newer dep to rebuild target")
+def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Detection of newer dep to rebuild target"""
+
+    os.chdir("/tmp")
+    pathlib.Path("/tmp/b").touch()
+    time.sleep(0.01)  # Dep is now older that target.
+    pathlib.Path("/tmp/a").touch()
+    touchBuilder = Builder(action="touch $@")
+
+    # Direct call to rule.apply
+    r_1 = Rule(targets="a", deps="b", builder=touchBuilder)
+    assert r_1.apply(None) == False
+    time.sleep(0.01)
+    pathlib.Path("/tmp/b").touch()
+    assert r_1.apply(None) == True
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Dependency graph should not changed (i) after the rule is called, and (ii) after the dep is renewed.
+    pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
+    r_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    Target("a")
+    dep1 = generateDependencyList()
+    r_2.apply(None)
+    dep2 = generateDependencyList()
+    assert dep1 == dep2
+    pathlib.Path("/tmp/b").touch()
+    dep3 = generateDependencyList()
+    assert dep1 == dep3
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Call to buildDeps
+    pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
+    r_3 = Rule(targets="a", deps="b", builder=touchBuilder)
+    Target("a")
+    assert buildDeps(generateDependencyList()) == []
+    pathlib.Path("/tmp/b").touch()
+    assert buildDeps(generateDependencyList()) == [("/tmp/a", r_3)]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # From ReMakeFile
+    pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
+    ReMakeFile = f"""
+touchBuilder = Builder(action="touch $@")
+Rule(targets="a", deps="b", builder=touchBuilder)
+Target("a")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+    context = executeReMakeFileFromDirectory("/tmp")
+    assert context.executedRules == []
+    pathlib.Path("/tmp/b").touch()
+    context = executeReMakeFileFromDirectory("/tmp")
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+    r_4 = Rule(targets="a", deps="b", builder=touchBuilder)
+    assert context.executedRules == [("/tmp/a", r_4)]
+
+
+@test("Detection of newer dep of dep (3 levels) to rebuild target")
+def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Detection of newer dep of dep (3 levels) to rebuild target"""
+    # Direct call to rule.apply
+    # Dependency graph should not changed (i) after the rule is called, and (ii) after the dep is renewed.
+    # Call to buildDeps
+    # From ReMakeFile
+    pass
+
+
 # Pas de cycles
 # Prevent nettoyage des deps (NoClean(target))
 # Environnement avec dossier cache et output

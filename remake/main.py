@@ -71,6 +71,23 @@ def unsetClean():
     CLEAN = False
 
 
+def shouldRebuild(target, deps):
+    """Returns True if target should be built, False else.
+    Target is built is not existing or if any dependency is more recent."""
+    if not os.path.isfile(target):
+        # If target does not already exists.
+        return True
+    else:
+        # Target exists, check for newer deps.
+        for dep in deps:
+            if os.path.getctime(dep) > os.path.getctime(target):
+                # Dep was created after target, thus more recent, thus should rebuild.
+                return True
+
+        # All deps are older than target, no need for rebuild.
+        return False
+
+
 class Target():
     """Class registering files as remake targets."""
     def __init__(self, targets):
@@ -155,14 +172,21 @@ class Rule():
             return hash(tuple([tuple(self._targets), *self._deps, *self._action]))
 
     def apply(self, console):
-        """Applies rule's action."""
-        if all([os.path.isfile(target) for target in self._targets]):
-            return
+        """Applies rule's action.
+        Returns True if action was applied, False else.
+        """
 
-        for dep in self._deps:
-            if not DRY_RUN and not os.path.isfile(dep):
-                raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._target}")
+        # Check if rule is already applied (all targets are already made).
+        if all([not shouldRebuild(target, self._deps) for target in self._targets]):
+            return False
 
+        # If we are not in dry run mode, ensure dependencies were made before the rule is applied.
+        if not DRY_RUN:
+            for dep in self._deps:
+                if not os.path.isfile(dep):
+                    raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._targets}")
+
+        # Apply the rule.
         if isinstance(self._action, list):
             subprocess.run(
                 " ".join(self._action),
@@ -174,10 +198,13 @@ class Rule():
         else:
             self._action(self._deps, self._targets, console, **self._kwargs)
 
+        # If we are not in dry run mode, ensure targets were made after the rule is applied.
         if not DRY_RUN:
             for target in self._targets:
                 if not os.path.isfile(target):
                     raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
+
+        return True
 
     @property
     def action(self):
@@ -273,16 +300,18 @@ def executeReMakeFileFromDirectory(cwd):
 
     loadScript()
     deps = generateDependencyList()
+    executedRules = []
     if CLEAN and deps:
         # We are in clean mode and there are deps to clean.
         cleanDeps(deps)
     elif not CLEAN and deps:
         # We are in build mode and there are deps to build.
-        buildDeps(deps)
+        executedRules = buildDeps(deps)
 
     os.chdir(oldCwd)
     oldContext = popContext()
     oldContext.deps = deps
+    oldContext.executedRules = executedRules
     if DEV_TEST:
         addOldContext(absCwd, oldContext)
     return oldContext
@@ -548,12 +577,14 @@ def buildDeps(deps):
                     progress.console.print(
                         f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.action}"
                     )
+                    # Keep track of the rules applied for return.
+                    rulesApplied += [(target, rule)]
                 else:
                     progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
-                    rule.apply(progress)
+                    if rule.apply(progress):
+                        # Keep track of the rules applied for return.
+                        rulesApplied += [(target, rule)]
 
-                # Keep track of the rules applied for return.
-                rulesApplied += [(target, rule)]
                 progress.advance(task)
 
     return rulesApplied
