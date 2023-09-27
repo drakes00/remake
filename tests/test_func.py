@@ -842,6 +842,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     r_2.apply(None)
     dep2 = generateDependencyList()
     assert dep1 == dep2
+    time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
     dep3 = generateDependencyList()
     assert dep1 == dep3
@@ -853,6 +854,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     r_3 = Rule(targets="a", deps="b", builder=touchBuilder)
     Target("a")
     assert buildDeps(generateDependencyList()) == []
+    time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
     assert buildDeps(generateDependencyList()) == [("/tmp/a", r_3)]
     getCurrentContext().clearRules()
@@ -869,10 +871,11 @@ Target("a")
         handle.write(ReMakeFile)
     context = executeReMakeFileFromDirectory("/tmp")
     assert context.executedRules == []
-    pathlib.Path("/tmp/b").touch()
-    context = executeReMakeFileFromDirectory("/tmp")
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
+    time.sleep(0.01)
+    pathlib.Path("/tmp/b").touch()
+    context = executeReMakeFileFromDirectory("/tmp")
     r_4 = Rule(targets="a", deps="b", builder=touchBuilder)
     assert context.executedRules == [("/tmp/a", r_4)]
 
@@ -880,11 +883,110 @@ Target("a")
 @test("Detection of newer dep of dep (3 levels) to rebuild target")
 def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Detection of newer dep of dep (3 levels) to rebuild target"""
+
+    os.chdir("/tmp")
+    touchBuilder = Builder(action="touch $@")
+
     # Direct call to rule.apply
+    pathlib.Path("/tmp/c").touch()
+    time.sleep(0.01)  # Dep is now older that intermediate dep.
+    pathlib.Path("/tmp/b").touch()
+    time.sleep(0.01)  # Intermedite dep is now older that target.
+    pathlib.Path("/tmp/a").touch()
+    r_1_1 = Rule(targets="b", deps="c", builder=touchBuilder)
+    r_1_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    # Here: a more recent than b more recent than c.
+    # Nothing to do, rules are expected to return False.
+    assert r_1_1.apply(None) == False
+    assert r_1_2.apply(None) == False
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    # Here: c more recent than a more recent than b.
+    # Rule should not check dependencies of dependencies.
+    # This is the job of the dependency graph!
+    assert r_1_2.apply(None) == False
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
     # Dependency graph should not changed (i) after the rule is called, and (ii) after the dep is renewed.
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    time.sleep(0.01)  # Dep is now older that intermediate dep.
+    pathlib.Path("/tmp/b").touch()
+    time.sleep(0.01)  # Intermedite dep is now older that target.
+    pathlib.Path("/tmp/a").touch()
+    # Here: a more recent than b more recent than c.
+    r_2_1 = Rule(targets="b", deps="c", builder=touchBuilder)
+    r_2_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    Target("a")
+    dep1 = generateDependencyList()
+    # Here: a more recent than b more recent than c.
+    # Nothing to do, rules are expected to return False.
+    assert r_2_1.apply(None) == False
+    dep2 = generateDependencyList()
+    assert dep1 == dep2
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    # Here: c more recent than a more recent than b.
+    dep3 = generateDependencyList()
+    assert dep1 == dep3
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
     # Call to buildDeps
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    time.sleep(0.01)  # Dep is now older that intermediate dep.
+    pathlib.Path("/tmp/b").touch()
+    time.sleep(0.01)  # Intermedite dep is now older that target.
+    pathlib.Path("/tmp/a").touch()
+    # Here: a more recent than b more recent than c.
+    r_3_1 = Rule(targets="b", deps="c", builder=touchBuilder)
+    r_3_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    Target("a")
+    # Here: a more recent than b more recent than c.
+    # Nothing to do, rules are expected to return False.
+    assert buildDeps(generateDependencyList()) == []
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    # Here: c more recent than a more recent than b.
+    # Since dependency graph will first try to build b and c is more recent than b, b will be built.
+    # Then since b just got built, b is more recent than a, and a will be built.
+    assert buildDeps(generateDependencyList()) == [("/tmp/b", r_3_1), ("/tmp/a", r_3_2)]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
     # From ReMakeFile
-    pass
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    time.sleep(0.01)  # Dep is now older that intermediate dep.
+    pathlib.Path("/tmp/b").touch()
+    time.sleep(0.01)  # Intermedite dep is now older that target.
+    pathlib.Path("/tmp/a").touch()
+    # Here: a more recent than b more recent than c.
+    ReMakeFile = f"""
+touchBuilder = Builder(action="touch $@")
+Rule(targets="b", deps="c", builder=touchBuilder)
+Rule(targets="a", deps="b", builder=touchBuilder)
+Target("a")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+    context = executeReMakeFileFromDirectory("/tmp")
+    # Here: a more recent than b more recent than c.
+    # Nothing to do, rules are expected to return False.
+    assert context.executedRules == []
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+    time.sleep(0.01)
+    pathlib.Path("/tmp/c").touch()
+    # Here: c more recent than a more recent than b.
+    # Since dependency graph will first try to build b and c is more recent than b, b will be built.
+    # Then since b just got built, b is more recent than a, and a will be built.
+    context = executeReMakeFileFromDirectory("/tmp")
+    r_4_1 = Rule(targets="b", deps="c", builder=touchBuilder)
+    r_4_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    assert context.executedRules == [("/tmp/b", r_4_1), ("/tmp/a", r_4_2)]
 
 
 # Pas de cycles
