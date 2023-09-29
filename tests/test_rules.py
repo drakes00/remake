@@ -70,3 +70,50 @@ def test_04_targets(_=ensureCleanContext):
     rule2 = Rule(targets=["/tmp/bar", "/tmp/baz"], deps="/tmp/foo", builder=fooBuilder)
     assert rule2.deps == ["/tmp/foo"]
     assert rule2.targets == ["/tmp/bar", "/tmp/baz"]
+
+
+@test("Pattern rules can expand to named targets")
+def test_05_patternRulesMatchExpand(_=ensureCleanContext):
+    """Pattern rules can expand to named targets"""
+
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+
+    # Simple pattern rule.
+    rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    assert rule.match("a.foo") == ["a.bar"]
+    assert rule.match("a.bar") == []
+    assert rule.match("a.baz") == []
+
+    # Multiple deps pattern rule.
+    rule = PatternRule(target="%.foo", deps=["%.bar", "%.baz"], builder=fooBuilder)
+    assert rule.match("a.foo") == ["a.bar", "a.baz"]
+    assert rule.match("a.bar") == []
+    assert rule.match("a.baz") == []
+
+
+@test("Pattern rules can exlude targets")
+def test_06_patternRulesExcludeTargets(_=ensureCleanContext):
+    """Pattern rules can exlude targets"""
+
+    fooBuilder = Builder(action="Magically creating $@ from $<")
+
+    # Simple pattern rule.
+    rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder, exclude=["a.foo"])
+    assert rule.match("a.foo") == []
+    assert rule.match("a.bar") == []
+    assert rule.match("a.baz") == []
+    assert rule.match("b.foo") == ["b.bar"]
+    assert rule.match("b.bar") == []
+    assert rule.match("b.baz") == []
+
+    # Multiple deps pattern rule.
+    rule = PatternRule(target="%.foo", deps=["%.bar", "%.baz"], builder=fooBuilder, exclude=["a.foo"])
+    assert rule.match("a.foo") == []
+    assert rule.match("a.bar") == []
+    assert rule.match("a.baz") == []
+    assert rule.match("b.foo") == ["b.bar", "b.baz"]
+    assert rule.match("b.bar") == []
+    assert rule.match("b.baz") == []
+
+
+# Rules can handle symbolic links.

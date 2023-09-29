@@ -127,8 +127,8 @@ class Builder():
 
 class Rule():
     """Generic rule class."""
-    _deps = None
-    _targets = None
+    _deps = []
+    _targets = []
     _action = None
     _kwargs = None
 
@@ -238,7 +238,9 @@ class Rule():
 
 class PatternRule(Rule):
     """Pattern rule class (e.g., %.pdf:%.tex)."""
-    def __init__(self, target, deps, builder):
+    _exclude = []
+
+    def __init__(self, target, deps, builder, exclude=[]):
         assert target.startswith("%")
         if isinstance(deps, list):
             for dep in deps:
@@ -247,6 +249,7 @@ class PatternRule(Rule):
             assert deps.startswith("%")
         else:
             raise NotImplementedError
+        self._exclude = exclude
         super().__init__(targets=target, deps=deps, builder=builder)
 
     def _register(self):
@@ -254,6 +257,23 @@ class PatternRule(Rule):
 
     def _expandToAbsPath(self):
         pass
+
+    def match(self, other):
+        """Check if `other` matches dependency pattern and is not in exclude list.
+        If True, returns corresponding target names.
+        Else, returns []."""
+        if any([other.endswith(_) for _ in self._exclude]):
+            return []
+
+        ret = []
+        regex = self._targets[0].replace("%", "([a-zA-Z0-9_/-]*)")
+        occ = re.fullmatch(regex + "$", other)
+        if occ:
+            # Expanding the rule to generate deps file names.
+            for dep in self._deps:
+                ret += [occ.expand(dep.replace("%", r"\1"))]
+
+        return ret
 
     def expand(self, target):
         """Expands pattern rule into named rule according to target's basename
@@ -370,18 +390,12 @@ def findBuildPath(target):
         foundRule = None
         # Then with pattern rules that are generic.
         for rule in patternRules:
-            for ruleTarget in rule.targets:
-                regex = ruleTarget.replace("%", "([a-zA-Z0-9_/-]*)")
-                occ = re.fullmatch(regex + "$", target)
-                if occ:
-                    # Since rule was an anonymous rule (with %),
-                    # Expanding the rule to generate deps file names.
-                    for dep in rule.deps:
-                        depName = occ.expand(dep.replace("%", r"\1"))
-                        depNames += [depName]
-
-                    foundRule = rule
-                    break
+            depNames = rule.match(target)
+            if depNames:
+                # Since rule was an anonymous rule (with %),
+                # Expanding the rule to generate deps file names within match method.
+                foundRule = rule
+                break
 
         # Stopping here as pattern rule was found.
         if foundRule is not None:
