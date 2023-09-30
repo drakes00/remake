@@ -114,6 +114,3 @@ def test_06_patternRulesExcludeTargets(_=ensureCleanContext):
     assert rule.match("b.foo") == ["b.bar", "b.baz"]
     assert rule.match("b.bar") == []
     assert rule.match("b.baz") == []
-
-
-# Rules can handle symbolic links.

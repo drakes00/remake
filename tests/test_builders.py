@@ -80,6 +80,3 @@ def test_04_buildersKwargs():
     r_2.apply(None)
     getCurrentContext().clearRules()
     unsetDryRun()
-
-
-# Présence de builders avec fonctions natives (déplacer, supprimer, etc)

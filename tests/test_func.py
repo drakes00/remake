@@ -987,10 +987,3 @@ Target("a")
     r_4_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_4_2 = Rule(targets="a", deps="b", builder=touchBuilder)
     assert context.executedRules == [("/tmp/b", r_4_1), ("/tmp/a", r_4_2)]
-
-
-# Pas de cycles
-# Prevent nettoyage des deps (NoClean(target))
-# Environnement avec dossier cache et output
-# Show dependency tree in terminal
-# Rules are executed in the order of apparition (currently subremake executed first)
