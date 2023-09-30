@@ -310,7 +310,7 @@ class SubReMakeDir():
         executeReMakeFileFromDirectory(subDir)
 
 
-def executeReMakeFileFromDirectory(cwd):
+def executeReMakeFileFromDirectory(cwd, configFile=None):
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
     absCwd = os.path.abspath(cwd)
@@ -318,7 +318,7 @@ def executeReMakeFileFromDirectory(cwd):
     oldCwd = os.getcwd()
     os.chdir(absCwd)
 
-    loadScript()
+    loadScript(configFile)
     deps = generateDependencyList()
     executedRules = []
     if CLEAN and deps:
@@ -337,9 +337,12 @@ def executeReMakeFileFromDirectory(cwd):
     return oldContext
 
 
-def loadScript():
+def loadScript(configFile=None):
     """Loads and execs the ReMakeFile script."""
-    with open("ReMakeFile", "r", encoding="utf-8") as handle:
+    if configFile is None:
+        configFile = "ReMakeFile"
+
+    with open(configFile, "r", encoding="utf-8") as handle:
         script = handle.read()
 
     exec(script)
@@ -622,6 +625,12 @@ def main():
         "--clean",
         action="store_true",
     )
+    argparser.add_argument(
+        "-f",
+        "--config-file",
+        type=str,
+        default=None,
+    )
     args = argparser.parse_args()
 
     # Global arguments handling.
@@ -635,7 +644,7 @@ def main():
     if args.clean:
         setClean()
 
-    executeReMakeFileFromDirectory(os.getcwd())
+    executeReMakeFileFromDirectory(os.getcwd(), configFile=args.config_file)
 
 
 if __name__ == "__main__":
