@@ -24,17 +24,17 @@ def ensureCleanContext():
 def test_01_namedRules(_=ensureCleanContext):
     """Rules can be named"""
 
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
     rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=fooBuilder)
     assert rule.deps == [TMP_FILE]
     assert rule.targets == [TMP_FILE]
 
 
 @test("Rules can be patterns")
-def test_01_patternRules(_=ensureCleanContext):
+def test_02_patternRules(_=ensureCleanContext):
     """Rules can be patterns"""
 
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
     rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
     assert rule.deps == ["%.bar"]
     assert rule.targets == ["%.foo"]
@@ -45,7 +45,7 @@ def test_03_deps(_=ensureCleanContext):
     """Named rule deps can be a string of a list of string"""
 
     os.chdir("/tmp")
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
 
     rule = Rule(targets="/tmp/bar", deps="/tmp/foo", builder=fooBuilder)
     assert rule.deps == ["/tmp/foo"]
@@ -61,7 +61,7 @@ def test_04_targets(_=ensureCleanContext):
     """Named rule targets can be a string of a list of string"""
 
     os.chdir("/tmp")
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
 
     rule = Rule(targets="/tmp/bar", deps="/tmp/foo", builder=fooBuilder)
     assert rule.deps == ["/tmp/foo"]
@@ -76,7 +76,7 @@ def test_04_targets(_=ensureCleanContext):
 def test_05_patternRulesMatchExpand(_=ensureCleanContext):
     """Pattern rules can expand to named targets"""
 
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
 
     # Simple pattern rule.
     rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
@@ -95,7 +95,7 @@ def test_05_patternRulesMatchExpand(_=ensureCleanContext):
 def test_06_patternRulesExcludeTargets(_=ensureCleanContext):
     """Pattern rules can exlude targets"""
 
-    fooBuilder = Builder(action="Magically creating $@ from $<")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
 
     # Simple pattern rule.
     rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder, exclude=["a.foo"])
