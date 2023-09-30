@@ -36,7 +36,7 @@ structures.
 To install ReMake, clone the repository and run the following command:
 
 ```bash
-git clone https://github.com/your-username/remake.git
+git clone https://github.com/drakes00/remake.git
 cd remake
 pip install .
 ```
