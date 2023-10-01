@@ -6,6 +6,7 @@
 
 ## New Features
 
+- Allow pattern rules with named target ? (ex: %.o -> executable)
 - Dependency cycle detection
 - Prevent cleaning (NoClean(target))
 - Specify cache and output folders
