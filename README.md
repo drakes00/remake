@@ -100,6 +100,8 @@ ReMakeFile located in the "subfolder" directory. This allows to cut the build
 process into smaller, modular ReMakeFiles for better organization and
 maintainability.
 
+More examples can be found in [examples](./examples/).
+
 ## Contributing
 
 Contributions to ReMake are welcome! Feel free to open issues, submit pull
