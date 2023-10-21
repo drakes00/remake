@@ -74,12 +74,18 @@ def unsetClean():
 def shouldRebuild(target, deps):
     """Returns True if target should be built, False else.
     Target is built is not existing or if any dependency is more recent."""
+    if isinstance(target, VirtualTarget):
+        # Target is virtual, always rebuild.
+        return True
     if not os.path.isfile(target):
         # If target does not already exists.
         return True
     else:
         # Target exists, check for newer deps.
         for dep in deps:
+            if isinstance(dep, VirtualDep):
+                # Dependency is virtual, nothing to compare to, skip to next dep.
+                continue
             if os.path.getctime(dep) > os.path.getctime(target):
                 # Dep was created after target, thus more recent, thus should rebuild.
                 return True
@@ -91,7 +97,41 @@ def shouldRebuild(target, deps):
 class Target():
     """Class registering files as remake targets."""
     def __init__(self, targets):
-        getCurrentContext().addTargets(targets)
+        if isinstance(targets, str):
+            getCurrentContext().addTargets(os.path.abspath(targets))
+        elif isinstance(targets, list):
+            getCurrentContext().addTargets([os.path.abspath(_) for _ in targets])
+
+
+class VirtualTarget():
+    """Class registering remake targets that are not files."""
+    def __init__(self, name):
+        self._name = name
+        getCurrentContext().addTargets(self)
+
+    def __str__(self):
+        return self._name
+
+    def __hash__(self):
+        return hash(self._name)
+
+    def __eq__(self, other):
+        return isinstance(other, VirtualTarget) and self._name == other._name
+
+
+class VirtualDep():
+    """Class registering remake dependencies that are not files."""
+    def __init__(self, name):
+        self._name = name
+
+    def __str__(self):
+        return self._name
+
+    def __hash__(self):
+        return hash(self._name)
+
+    def __eq__(self, other):
+        return isinstance(other, VirtualDep) and self._name == other._name
 
 
 class Builder():
@@ -111,9 +151,9 @@ class Builder():
         if isinstance(self._action, str):
             ret = self._action
             if deps:
-                ret = ret.replace("$<", " ".join(deps))
-                ret = ret.replace("$^", deps[0])
-            ret = ret.replace("$@", " ".join(targets))
+                ret = ret.replace("$<", " ".join([str(_) for _ in deps]))
+                ret = ret.replace("$^", str(deps[0]))
+            ret = ret.replace("$@", " ".join([str(_) for _ in targets]))
             ret = ret.split(" ")
             return ret
 
@@ -133,32 +173,66 @@ class Rule():
     _kwargs = None
 
     def __init__(self, targets, builder, deps=[], ephemeral=False, **kwargs):
-        if isinstance(deps, list):
-            self._deps = deps
-        elif isinstance(deps, str):
-            self._deps = [deps]
-        else:
-            raise NotImplementedError
-
-        if isinstance(targets, list):
-            self._targets = targets
-        elif isinstance(targets, str):
-            self._targets = [targets]
-        else:
-            raise NotImplementedError
+        self._deps = self._parseDeps(deps)
+        self._targets = self._parseTargets(targets)
 
         self._action = builder.parseAction(self._deps, self._targets)
-        self._expandToAbsPath()
         self._kwargs = kwargs
         if not ephemeral:
             self._register()
 
+    def _parseDeps(self, deps):
+        if isinstance(deps, str):
+            # Dep is a single string, need to be expanded to absolute path.
+            return [self._expandToAbsPath(deps)]
+        elif isinstance(deps, VirtualDep):
+            # Dep is a single virtual dep, no need to expand.
+            return [deps]
+
+        ret = []
+        if isinstance(deps, list):
+            # Dep is a list, iterate over elements
+            for dep in deps:
+                if isinstance(dep, str):
+                    ret += [self._expandToAbsPath(dep)]
+                elif isinstance(dep, VirtualDep):
+                    ret += [dep]
+                else:
+                    raise TypeError
+        else:
+            raise TypeError
+
+        return ret
+
+    def _parseTargets(self, targets):
+        if isinstance(targets, str):
+            # Target is a single string, need to be expanded to absolute path.
+            return [self._expandToAbsPath(targets)]
+        elif isinstance(targets, VirtualTarget):
+            # Target is a single virtual target, no need to expand.
+            return [targets]
+
+        ret = []
+        if isinstance(targets, list):
+            # Target is a list, iterate over elements
+            for target in targets:
+                if isinstance(target, str):
+                    ret += [self._expandToAbsPath(target)]
+                elif isinstance(target, VirtualTarget):
+                    ret += [target]
+                else:
+                    raise TypeError
+        else:
+            raise TypeError
+
+        return ret
+
     def _register(self):
         getCurrentContext().addNamedRule(self)
 
-    def _expandToAbsPath(self):
-        self._deps = [os.path.abspath(dep) for dep in self._deps]
-        self._targets = [os.path.abspath(target) for target in self._targets]
+    def _expandToAbsPath(self, filename):
+        """Expands dep or target to absolute path."""
+        return os.path.abspath(filename)
 
     def __eq__(self, other):
         return (self._targets, self._deps, self._action) == (other._targets, other._deps, other._action)
@@ -183,7 +257,7 @@ class Rule():
         # If we are not in dry run mode, ensure dependencies were made before the rule is applied.
         if not DRY_RUN:
             for dep in self._deps:
-                if not os.path.isfile(dep):
+                if not isinstance(dep, VirtualDep) and not os.path.isfile(dep):
                     raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._targets}")
 
         # Apply the rule.
@@ -201,7 +275,7 @@ class Rule():
         # If we are not in dry run mode, ensure targets were made after the rule is applied.
         if not DRY_RUN:
             for target in self._targets:
-                if not os.path.isfile(target):
+                if not isinstance(target, VirtualTarget) and not os.path.isfile(target):
                     raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
 
         return True
@@ -255,8 +329,9 @@ class PatternRule(Rule):
     def _register(self):
         getCurrentContext().addPatternRule(self)
 
-    def _expandToAbsPath(self):
-        pass
+    def _expandToAbsPath(self, filename):
+        """PatternRules are not expanded!"""
+        return filename
 
     def match(self, other):
         """Check if `other` matches dependency pattern and is not in exclude list.
@@ -323,10 +398,10 @@ def executeReMakeFileFromDirectory(cwd, configFile=None):
     executedRules = []
     if CLEAN and deps:
         # We are in clean mode and there are deps to clean.
-        cleanDeps(deps)
+        cleanDeps(deps, configFile)
     elif not CLEAN and deps:
         # We are in build mode and there are deps to build.
-        executedRules = buildDeps(deps)
+        executedRules = buildDeps(deps, configFile)
 
     os.chdir(oldCwd)
     oldContext = popContext()
@@ -361,9 +436,6 @@ def generateDependencyList():
 
 def findBuildPath(target):
     """Constructs dependency graph from registered rules."""
-    # First converts the target to its absolute path to not mix it up with another file.
-    target = os.path.abspath(target)
-
     depNames = []
     foundRule = None
 
@@ -374,7 +446,7 @@ def findBuildPath(target):
         # First with named rules that will directly match the target.
         for rule in namedRules:
             for ruleTarget in rule.targets:
-                occ = re.fullmatch(ruleTarget, target)
+                occ = re.fullmatch(str(ruleTarget), str(target))
                 if occ:
                     # Target found in rule's target.
                     depNames += rule.deps
@@ -393,7 +465,7 @@ def findBuildPath(target):
         foundRule = None
         # Then with pattern rules that are generic.
         for rule in patternRules:
-            depNames = rule.match(target)
+            depNames = rule.match(str(target))
             if depNames:
                 # Since rule was an anonymous rule (with %),
                 # Expanding the rule to generate deps file names within match method.
@@ -410,7 +482,7 @@ def findBuildPath(target):
             }
 
     # At this point, no rule was found for the target.
-    if os.path.isfile(target):
+    if os.path.isfile(str(target)):
         # And target already exists.
         if CLEAN:
             # We are attempting to clean an existing target no linked to any rule.
@@ -430,6 +502,9 @@ def findBuildPath(target):
             raise ValueError
         elif DRY_RUN:
             # If we are in dev mode, deps might not exit, just assume it's OK.
+            return target
+        elif isinstance(target, VirtualTarget) or isinstance(target, VirtualDep):
+            # Target is virtual and is not supposed to be a file, just assume it's OK.
             return target
         else:
             # However, if in build mode, no rule was found to make target!
@@ -525,7 +600,7 @@ def optimizeDeps(deps):
     return deps
 
 
-def cleanDeps(deps):
+def cleanDeps(deps, configFile="ReMakeFile"):
     """Builds files marked as targets from their dependencies."""
     def _cleanDep(target):
         if os.path.isfile(target):
@@ -536,7 +611,7 @@ def cleanDeps(deps):
 
     with Progress() as progress:
         progress.console.print(
-            f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
+            f"[+] [green bold] Executing {configFile} for folder {getCurrentContext().cwd}.[/bold green]"
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
@@ -559,12 +634,12 @@ def cleanDeps(deps):
     return deps
 
 
-def buildDeps(deps):
+def buildDeps(deps, configFile="ReMakeFile"):
     """Builds files marked as targets from their dependencies."""
     rulesApplied = []
     with Progress() as progress:
         progress.console.print(
-            f"[+] [green bold] Executing ReMakeFile for folder {getCurrentContext().cwd}.[/bold green]"
+            f"[+] [green bold] Executing {configFile} for folder {getCurrentContext().cwd}.[/bold green]"
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):

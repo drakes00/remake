@@ -5,9 +5,10 @@ import os
 import pathlib
 import shutil
 import time
+
 from ward import test, raises, fixture
 
-from remake import Builder, Rule, PatternRule, Target
+from remake import Builder, Rule, PatternRule, Target, VirtualTarget, VirtualDep
 from remake import findBuildPath, executeReMakeFileFromDirectory, buildDeps, cleanDeps, generateDependencyList, getCurrentContext, getOldContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
@@ -65,37 +66,35 @@ def test_01_funDeps(_=ensureCleanContext):
     """Automatically detect dependencies"""
 
     setDevTest()
-    setDryRun()
-    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
-    r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
+    r_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
-         r_1): ["/tmp/b"]
+        ("a",
+         r_1): [VirtualDep("b")]
     }
     getCurrentContext().clearRules()
 
     # Two files one dependence.
-    r_2_1 = Rule(targets="a", deps="c", builder=fooBuilder)
-    r_2_2 = Rule(targets="b", deps="c", builder=fooBuilder)
+    r_2_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("c"), builder=fooBuilder)
+    r_2_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
-         r_2_1): ["/tmp/c"]
+        ("a",
+         r_2_1): [VirtualDep("c")]
     }
     assert findBuildPath("b") == {
-        ("/tmp/b",
-         r_2_2): ["/tmp/c"]
+        ("b",
+         r_2_2): [VirtualDep("c")]
     }
     getCurrentContext().clearRules()
 
     # One file two dependencies
-    r_3_1 = Rule(targets="a", deps=["b", "c"], builder=fooBuilder)
+    r_3_1 = Rule(targets=VirtualTarget("a"), deps=[VirtualDep("b"), VirtualDep("c")], builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
-         r_3_1): ["/tmp/b",
-                  "/tmp/c"]
+        ("a",
+         r_3_1): [VirtualDep("b"),
+                  VirtualDep("c")]
     }
     getCurrentContext().clearRules()
 
@@ -107,73 +106,120 @@ def test_01_funDeps(_=ensureCleanContext):
     # getCurrentContext().clearRules()
 
     # Three levels
-    r_5_1 = Rule(targets="a", deps="b", builder=fooBuilder)
-    r_5_2 = Rule(targets="b", deps="c", builder=fooBuilder)
+    r_5_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
+    r_5_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
+        ("a",
          r_5_1): [{
-            ("/tmp/b",
-             r_5_2): ["/tmp/c"]
+            (VirtualDep("b"),
+             r_5_2): [VirtualDep("c")]
         }]
     }
     getCurrentContext().clearRules()
 
     # Complex
-    r_6_1 = Rule(targets="d", deps=["c", "a2", "b1"], builder=fooBuilder)
-    r_6_2 = Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
-    r_6_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
-    r_6_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
+    r_6_1 = Rule(
+        targets=VirtualTarget("d"),
+        deps=[
+            VirtualDep("c"),
+            VirtualDep("a2"),
+            VirtualDep("b1"),
+        ],
+        builder=fooBuilder,
+    )
+    r_6_2 = Rule(
+        targets=VirtualTarget("c"),
+        deps=[
+            VirtualDep("b1"),
+            VirtualDep("b2"),
+        ],
+        builder=fooBuilder,
+    )
+    r_6_3 = Rule(
+        targets=VirtualTarget("b1"),
+        deps=[
+            VirtualDep("a1"),
+        ],
+        builder=fooBuilder,
+    )
+    r_6_4 = Rule(
+        targets=VirtualTarget("b2"),
+        deps=[
+            VirtualDep("a1"),
+            VirtualDep("a2"),
+        ],
+        builder=fooBuilder,
+    )
     assert findBuildPath("d") == {
-        ("/tmp/d",
+        ("d",
          r_6_1):
             [
                 {
-                    ("/tmp/c",
-                     r_6_2): [{
-                        ("/tmp/b1",
-                         r_6_3): ["/tmp/a1"]
-                    },
-                              {
-                                  ("/tmp/b2",
-                                   r_6_4): ["/tmp/a1",
-                                            "/tmp/a2"]
-                              }]
+                    (VirtualDep("c"),
+                     r_6_2):
+                        [
+                            {
+                                (VirtualDep("b1"),
+                                 r_6_3): [VirtualDep("a1")]
+                            },
+                            {
+                                (VirtualDep("b2"),
+                                 r_6_4): [VirtualDep("a1"),
+                                          VirtualDep("a2")]
+                            }
+                        ]
                 },
-                "/tmp/a2",
+                VirtualDep("a2"),
                 {
-                    ("/tmp/b1",
-                     r_6_3): ["/tmp/a1"]
+                    (VirtualDep("b1"),
+                     r_6_3): [VirtualDep("a1")]
                 }
             ]
     }
     getCurrentContext().clearRules()
 
     # Simple rule with another rule with multiple targets
-    r_8_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    r_8_2 = Rule(targets="d", deps=["e", "f"], builder=fooBuilder)
-    r_8_3 = Rule(targets=["g", "h"], deps=["i", "j"], builder=fooBuilder)
+    r_8_1 = Rule(targets=[VirtualTarget("a"), VirtualTarget("b")], deps=VirtualDep("c"), builder=fooBuilder)
+    r_8_2 = Rule(targets=VirtualTarget("d"), deps=[VirtualDep("e"), VirtualDep("f")], builder=fooBuilder)
+    r_8_3 = Rule(
+        targets=[
+            VirtualTarget("g"),
+            VirtualTarget("h"),
+        ],
+        deps=[
+            VirtualDep("i"),
+            VirtualDep("j"),
+        ],
+        builder=fooBuilder,
+    )
     assert findBuildPath("a") == {
-        ("/tmp/a",
-         r_8_1): ["/tmp/c"]
+        ("a",
+         r_8_1): [VirtualDep("c")]
     }
     assert findBuildPath("b") == {
-        ("/tmp/b",
-         r_8_1): ["/tmp/c"]
+        ("b",
+         r_8_1): [VirtualDep("c")]
     }
     assert findBuildPath("d") == {
-        ("/tmp/d",
-         r_8_2): ["/tmp/e",
-                  "/tmp/f"]
+        ("d",
+         r_8_2): [
+            VirtualDep("e"),
+            VirtualDep("f"),
+        ]
     }
     assert findBuildPath("g") == {
-        ("/tmp/g",
-         r_8_3): ["/tmp/i",
-                  "/tmp/j"]
+        ("g",
+         r_8_3): [
+            VirtualDep("i"),
+            VirtualDep("j"),
+        ]
     }
     assert findBuildPath("h") == {
-        ("/tmp/h",
-         r_8_3): ["/tmp/i",
-                  "/tmp/j"]
+        ("h",
+         r_8_3): [
+            VirtualDep("i"),
+            VirtualDep("j"),
+        ]
     }
     getCurrentContext().clearRules()
 
@@ -183,19 +229,17 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
 
     setDevTest()
-    setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
-    os.chdir("/tmp")
-    r_1 = Rule(targets="a", deps=["b", "c"], builder=fooBuilder)
-    r_2 = Rule(targets="b", deps="c", builder=fooBuilder)
+    r_1 = Rule(targets=VirtualTarget("a"), deps=[VirtualDep("b"), VirtualDep("c")], builder=fooBuilder)
+    r_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
+        ("a",
          r_1): [{
-            ("/tmp/b",
-             r_2): ["/tmp/c"]
+            (VirtualDep("b"),
+             r_2): [VirtualDep("c")]
         },
-                "/tmp/c"]
+                VirtualDep("c")]
     }
 
 
@@ -204,16 +248,14 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     """Same rule applied twice should be ignored"""
 
     setDevTest()
-    setDryRun()
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
     # One file one dependence.
-    os.chdir("/tmp")
-    r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
-    r_2 = Rule(targets="a", deps="b", builder=fooBuilder)
+    r_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
+    r_2 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     assert findBuildPath("a") == {
-        ("/tmp/a",
-         r_1): ["/tmp/b"]
+        ("a",
+         r_1): [VirtualDep("b")]
     }
 
 
@@ -259,7 +301,6 @@ Target("d.foo")
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
 
-    os.chdir("/tmp")
     setDryRun()
     setDevTest()
     context = executeReMakeFileFromDirectory("/tmp")
@@ -274,13 +315,11 @@ Target("d.foo")
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    Target("d")
-    Target("d.foo")
 
     assert len(named) == 4 and len(pattern) == 1
     assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
     assert pattern == [r_5]
-    assert targets == ["d", "d.foo"]
+    assert targets == ["/tmp/d", "/tmp/d.foo"]
 
 
 @test("Sub ReMakeFiles can be called")
@@ -307,7 +346,6 @@ Target("d.foo")
     with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile)
 
-    os.chdir("/tmp")
     setDryRun()
     setDevTest()
     executeReMakeFileFromDirectory("/tmp")
@@ -324,13 +362,11 @@ Target("d.foo")
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    Target("d")
-    Target("d.foo")
 
     assert len(named) == 4 and len(pattern) == 1
     assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
     assert pattern == [r_5]
-    assert targets == ["d", "d.foo"]
+    assert targets == ["/tmp/remake_subdir/d", "/tmp/remake_subdir/d.foo"]
 
 
 @test("3 levels of subfile")
@@ -364,7 +400,6 @@ Target("d.foo")
     with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
         handle.write(subReMakeFile2)
 
-    os.chdir("/tmp")
     setDryRun()
     setDevTest()
     executeReMakeFileFromDirectory("/tmp")
@@ -381,13 +416,11 @@ Target("d.foo")
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    Target("d")
-    Target("d.foo")
 
     assert len(named) == 4 and len(pattern) == 1
     assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
     assert pattern == [r_5]
-    assert targets == ["d", "d.foo"]
+    assert targets == ["/tmp/remake_subdir2/d", "/tmp/remake_subdir2/d.foo"]
 
 
 @test("Parent rules and builders are accessible from subfile if not overriden")

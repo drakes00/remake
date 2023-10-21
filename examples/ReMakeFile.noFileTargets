@@ -1,0 +1,28 @@
+import subprocess
+
+APT_DEPS = ["zsh", "neovim"]
+PACMAN_DEPS = ["zsh", "neovim"]
+
+apt = Builder(action="apt install $<")
+pacman = Builder(action="pacman -S $<")
+
+try:
+    # Check if apt is present on system.
+    HAS_APT = subprocess.run(["apt", "--version"], stdout=subprocess.DEVNULL).returncode == 0
+except FileNotFoundError:
+    HAS_APT = False
+
+try:
+    # Check if pacman is present on system.
+    HAS_PACMAN = subprocess.run(["pacman", "--version"], stdout=subprocess.DEVNULL).returncode == 0
+except FileNotFoundError:
+    HAS_PACMAN = False
+
+if HAS_APT:
+    # If apt is present on system, install packages from APT_DEPS with apt builder.
+    Rule(deps=[VirtualDep(_) for _ in APT_DEPS], targets=VirtualTarget("init_pkgmgr"), builder=apt,)
+elif HAS_PACMAN:
+    # If pacman is present on system, install packages from PACMAN_DEPS with pacman builder.
+    Rule(deps=[VirtualDep(_) for _ in PACMAN_DEPS], targets=VirtualTarget("init_pkgmgr"), builder=pacman,)
+
+VirtualTarget("init_pkgmgr")

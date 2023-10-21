@@ -3,10 +3,10 @@
 
 import os
 
-from ward import test, fixture
+from ward import test, fixture, raises
 
-from remake import Builder, Rule, PatternRule, getCurrentContext
-from remake import unsetDryRun, unsetDevTest
+from remake import Builder, Rule, PatternRule, VirtualDep, VirtualTarget
+from remake import unsetDryRun, unsetDevTest, getCurrentContext
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -40,36 +40,58 @@ def test_02_patternRules(_=ensureCleanContext):
     assert rule.targets == ["%.foo"]
 
 
-@test("Named rule deps can be a string of a list of string")
+@test("Named rule deps can be a string or a list of string")
 def test_03_deps(_=ensureCleanContext):
-    """Named rule deps can be a string of a list of string"""
+    """Named rule deps can be a string or a list of string"""
 
-    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $^")
+    os.chdir("/tmp")
 
-    rule = Rule(targets="/tmp/bar", deps="/tmp/foo", builder=fooBuilder)
+    # Check absolute paths.
+    rule = Rule(targets="/foo/bar", deps="/foo/baz", builder=fooBuilder)
+    assert rule.deps == ["/foo/baz"]
+    assert rule.targets == ["/foo/bar"]
+
+    # Check path expansion.
+    rule = Rule(targets="bar", deps="foo", builder=fooBuilder)
     assert rule.deps == ["/tmp/foo"]
     assert rule.targets == ["/tmp/bar"]
 
-    rule2 = Rule(targets="/tmp/baz", deps=["/tmp/foo", "/tmp/bar"], builder=fooBuilder)
-    assert rule2.deps == ["/tmp/foo", "/tmp/bar"]
-    assert rule2.targets == ["/tmp/baz"]
+    # Check VirtualDeps
+    rule = Rule(targets="bar", deps=VirtualDep("foo"), builder=fooBuilder)
+    assert rule.deps == [VirtualDep("foo")]
+    assert rule.targets == ["/tmp/bar"]
+
+    # Check VirtualTargets
+    with raises(TypeError):
+        rule = Rule(targets="bar", deps=VirtualTarget("foo"), builder=fooBuilder)
 
 
-@test("Named rule targets can be a string of a list of string")
+@test("Named rule targets can be a string or a list of string")
 def test_04_targets(_=ensureCleanContext):
-    """Named rule targets can be a string of a list of string"""
+    """Named rule targets can be a string or a list of string"""
 
-    os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $^")
+    os.chdir("/tmp")
 
-    rule = Rule(targets="/tmp/bar", deps="/tmp/foo", builder=fooBuilder)
+    # Check absolute paths.
+    rule = Rule(targets="/foo/bar", deps="/foo/baz", builder=fooBuilder)
+    assert rule.deps == ["/foo/baz"]
+    assert rule.targets == ["/foo/bar"]
+
+    # Check path expansion.
+    rule = Rule(targets="bar", deps="foo", builder=fooBuilder)
     assert rule.deps == ["/tmp/foo"]
     assert rule.targets == ["/tmp/bar"]
 
-    rule2 = Rule(targets=["/tmp/bar", "/tmp/baz"], deps="/tmp/foo", builder=fooBuilder)
-    assert rule2.deps == ["/tmp/foo"]
-    assert rule2.targets == ["/tmp/bar", "/tmp/baz"]
+    # Check VirtualTargets
+    rule = Rule(targets=VirtualTarget("bar"), deps="foo", builder=fooBuilder)
+    assert rule.deps == ["/tmp/foo"]
+    assert rule.targets == [VirtualTarget("bar")]
+
+    # Check VirtualDeps
+    with raises(TypeError):
+        rule = Rule(targets=VirtualDep("bar"), deps="foo", builder=fooBuilder)
 
 
 @test("Pattern rules can expand to named targets")

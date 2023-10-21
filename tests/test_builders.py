@@ -4,7 +4,8 @@
 import os
 from ward import test, fixture
 
-from remake import Builder, Rule, getCurrentContext, setDryRun, unsetDryRun
+from remake import Builder, Rule, VirtualDep, VirtualTarget
+from remake import getCurrentContext
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -28,15 +29,13 @@ def test_01_builderPyFun():
     def check_foobar(deps, targets, _):
         assert isinstance(deps, list)
         assert isinstance(targets, list)
-        assert deps == [TMP_FILE]
-        assert targets == [TMP_FILE]
+        assert deps == [VirtualDep(TMP_FILE)]
+        assert targets == [VirtualTarget(TMP_FILE)]
 
-    setDryRun()
     builder = Builder(action=check_foobar)
-    rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=builder)
+    rule = Rule(targets=VirtualTarget(TMP_FILE), deps=VirtualDep(TMP_FILE), builder=builder)
     rule.apply(None)
     getCurrentContext().clearRules()
-    unsetDryRun()
 
 
 @test("Builders can handle shell commands")
@@ -65,18 +64,16 @@ def test_04_buildersKwargs():
     def check_foobar(deps, targets, _, myArg=None):
         assert isinstance(deps, list)
         assert isinstance(targets, list)
-        assert deps in (["/No Arg"], ["/With Arg"])
-        assert targets in (["/No Arg"], ["/With Arg"])
-        if targets == ["/No Arg"]:
+        assert deps in ([VirtualDep("/No Arg")], [VirtualDep("/With Arg")])
+        assert targets in ([VirtualTarget("/No Arg")], [VirtualTarget("/With Arg")])
+        if targets == [VirtualTarget("/No Arg")]:
             assert myArg is None
-        elif targets == ["/With Arg"]:
+        elif targets == [VirtualTarget("/With Arg")]:
             assert myArg == "Cool"
 
-    setDryRun()
     builder = Builder(action=check_foobar)
-    r_1 = Rule(targets="/No Arg", deps="/No Arg", builder=builder)
-    r_2 = Rule(targets="/With Arg", deps="/With Arg", myArg="Cool", builder=builder)
+    r_1 = Rule(targets=VirtualTarget("/No Arg"), deps=VirtualDep("/No Arg"), builder=builder)
+    r_2 = Rule(targets=VirtualTarget("/With Arg"), deps=VirtualDep("/With Arg"), myArg="Cool", builder=builder)
     r_1.apply(None)
     r_2.apply(None)
     getCurrentContext().clearRules()
-    unsetDryRun()

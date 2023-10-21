@@ -69,6 +69,23 @@ rule2 = Rule(targets=["bar", "baz"], deps="foo", builder=fooBuilder)
 
 Named rule targets can be specified as either a string or a list of strings.
 
+#### 4. Virtual Targets and Dependencies
+
+```python
+pacman = Builder(action="pacman -S $<")
+
+# Rule with virtual target and deps
+Rule(deps=[VirtualDep("neovim"), VirtualDep("zsh")], targets=VirtualTarget("init_pkgmgr"), builder=pacman,)
+
+# Virtual target registration
+VirtualTarget("init_pkgmgr")
+```
+
+Dependencies and targets can be set as ``virtual''. This explicitly tells the
+`remake` engine to not consider them as files, but as abstract objects. Thus,
+no check will be performed on them (dependencies existance, target creation,
+last modified date, etc).
+
 ## PatternRule Class
 
 The `PatternRule` class represents a build rule with target and dependency
@@ -106,7 +123,7 @@ class PatternRule:
 
 ### Features
 
-#### 4. Pattern Rules
+#### 5. Pattern Rules
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -117,7 +134,7 @@ Target("a.bar")
 Pattern rules provide a way to match and generate targets based on patterns. In
 this example, the builder action is applied to create `a.bar` from `a.foo`.
 
-#### 5. Pattern Rules Multiple Dependencies
+#### 6. Pattern Rules Multiple Dependencies
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -133,7 +150,7 @@ Pattern rule dependencies can be specified as either a string or a list of
 strings. Here, the builder action is applied to create `a.baz` from `a.foo` and
 `a.bar`.
 
-#### 6. Pattern Rules Exclude Targets
+#### 7. Pattern Rules Exclude Targets
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -148,7 +165,7 @@ PatternRule(target="%.baz", deps=["%.foo", "%.bar"], builder=fooBuilder, exclude
 Pattern rules can exclude specific targets from matching. Here, `a.bar` and `a.baz` are respectively
 excluded from the pattern match, so ReMake will not look for their dependencies.
 
-#### 7. Pattern Rules Produce All Possible Targets
+#### 8. Pattern Rules Produce All Possible Targets
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $<")
