@@ -78,7 +78,7 @@ pacman = Builder(action="pacman -S $<")
 Rule(deps=[VirtualDep("neovim"), VirtualDep("zsh")], targets=VirtualTarget("init_pkgmgr"), builder=pacman,)
 
 # Virtual target registration
-VirtualTarget("init_pkgmgr")
+AddVirtualTarget("init_pkgmgr")
 ```
 
 Dependencies and targets can be set as ``virtual''. This explicitly tells the
@@ -104,7 +104,7 @@ class PatternRule:
         - `deps`: The dependency pattern or list of dependency patterns for the rule.
         - `builder`: The associated Builder object defining the build action.
         - `name` (optional): A name for the rule.
-        - `exclude` (optional): Targets to be excluded from pattern matching.
+        - `exclude` (optional): Targets/VirtualTargets to be excluded from pattern matching.
         """
         pass
 
@@ -128,7 +128,7 @@ class PatternRule:
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $^")
 PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
-Target("a.bar")
+AddTarget("a.bar")
 ```
 
 Pattern rules provide a way to match and generate targets based on patterns. In
@@ -170,7 +170,7 @@ excluded from the pattern match, so ReMake will not look for their dependencies.
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $<")
 rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-Target(rule.allTargets)
+AddTarget(rule.allTargets)
 ```
 
 The `allTargets` property of `PatternRule` allows for the generation of all

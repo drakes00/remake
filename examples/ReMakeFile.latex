@@ -1,9 +1,11 @@
+#!/usr/bin/env python
+
 from remake.builders import tex2pdf
 
 # Compile any .tex file into .pdf file.
 rule = PatternRule(deps="%.tex", target="%.pdf", builder=tex2pdf)
-Target(rule.allTargets)
+AddTarget(rule.allTargets)
 
 # Compile specific .tex file into .pdf file.
 Rule(deps="main.tex", targets="main.pdf", builder=tex2pdf, cmd="lualatex")
-Target("main.pdf")
+AddTarget("main.pdf")

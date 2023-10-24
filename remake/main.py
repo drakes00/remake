@@ -94,7 +94,7 @@ def shouldRebuild(target, deps):
         return False
 
 
-class Target():
+class AddTarget():
     """Class registering files as remake targets."""
     def __init__(self, targets):
         if isinstance(targets, str):
@@ -104,10 +104,9 @@ class Target():
 
 
 class VirtualTarget():
-    """Class registering remake targets that are not files."""
+    """Class representing remake targets that are not files."""
     def __init__(self, name):
         self._name = name
-        getCurrentContext().addTargets(self)
 
     def __str__(self):
         return self._name
@@ -117,6 +116,16 @@ class VirtualTarget():
 
     def __eq__(self, other):
         return isinstance(other, VirtualTarget) and self._name == other._name
+
+    def __lt__(self, other):
+        return self._name < other._name
+
+
+class AddVirtualTarget(VirtualTarget):
+    """Class registering remake targets that are not files."""
+    def __init__(self, name):
+        super().__init__(name)
+        getCurrentContext().addTargets(self)
 
 
 class VirtualDep():

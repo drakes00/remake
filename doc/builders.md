@@ -38,7 +38,7 @@ def do_some_work(deps, targets, console):
 
 myBuilder = Builder(action=do_some_work)
 Rule(targets="output.txt", deps="input.txt", builder=myBuilder)
-Target("output.txt")
+AddTarget("output.txt")
 ```
 
 In this example, a Python function (`do_some_work`) is used as the action for
@@ -50,7 +50,7 @@ of targets (`targets`), and a `rich` console (`console`) as arguments.
 ```python
 myBuilder = Builder(action=f"touch $@")
 Rule(targets="output.txt", builder=myBuilder)
-Target("output.txt")
+AddTarget("output.txt")
 ```
 
 Builders can also handle shell commands. In this case, the action is a shell
@@ -61,7 +61,7 @@ command to create a file using the `touch` command.
 ```python
 builder = Builder(action="cp $^ $@")
 Rule(targets="output.txt", deps="input.txt", builder=myBuilder)
-Target("output.txt")
+AddTarget("output.txt")
 ```
 
 Builders support automatic variables like `$^` (all dependencies), `$<` (first
@@ -83,7 +83,7 @@ Rule(
     myArg="Some ultra important yet optional information",
     builder=myBuilder
 )
-Target("output.txt")
+AddTarget("output.txt")
 ```
 
 Builders can handle keyword arguments in the action function. The

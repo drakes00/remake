@@ -25,4 +25,4 @@ elif HAS_PACMAN:
     # If pacman is present on system, install packages from PACMAN_DEPS with pacman builder.
     Rule(deps=[VirtualDep(_) for _ in PACMAN_DEPS], targets=VirtualTarget("init_pkgmgr"), builder=pacman,)
 
-VirtualTarget("init_pkgmgr")
+AddVirtualTarget("init_pkgmgr")

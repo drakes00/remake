@@ -57,7 +57,7 @@ class Context():
         self._namedRules = []
         self._patternRules = []
         self._executedRules = []
-        self._targets = set([])
+        self._targets = []
         self._deps = None
 
     @property
@@ -69,18 +69,20 @@ class Context():
         """Adds targets to current context."""
         if isinstance(targets, list):
             for target in targets:
-                self._targets.add(target)
+                if not target in self._targets:
+                    self._targets += [target]
         else:
-            self._targets.add(targets)
+            if not targets in self._targets:
+                self._targets += [targets]
 
     @property
     def targets(self):
         """Returns the list of targets to build from current context."""
-        return list(sorted(self._targets))
+        return self._targets
 
     def clearTargets(self):
         """Clears list of targets of current context."""
-        self._targets = set([])
+        self._targets = []
 
     def addNamedRule(self, rule):
         """Adds a named rule to current context."""

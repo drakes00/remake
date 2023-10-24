@@ -8,7 +8,7 @@ import time
 
 from ward import test, raises, fixture
 
-from remake import Builder, Rule, PatternRule, Target, VirtualTarget, VirtualDep
+from remake import Builder, Rule, PatternRule, AddTarget, AddVirtualTarget, VirtualTarget, VirtualDep
 from remake import findBuildPath, executeReMakeFileFromDirectory, buildDeps, cleanDeps, generateDependencyList, getCurrentContext, getOldContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
@@ -295,8 +295,8 @@ Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-Target("d")
-Target("d.foo")
+AddTarget("d")
+AddTarget("d.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -336,8 +336,8 @@ Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-Target("d")
-Target("d.foo")
+AddTarget("d")
+AddTarget("d.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -386,8 +386,8 @@ Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-Target("d")
-Target("d.foo")
+AddTarget("d")
+AddTarget("d.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -438,8 +438,8 @@ del fooBuilder
     subReMakeFile = """
 Rule(targets="c", deps="b", builder=fooBuilder)
 PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
-Target("c")
-Target("c.foo")
+AddTarget("c")
+AddTarget("c.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -465,8 +465,8 @@ Target("c.foo")
     os.chdir("/tmp/remake_subdir")
     Rule(targets="c", deps="b", builder=fooBuilder)
     PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
-    Target("c")
-    Target("c.foo")
+    AddTarget("c")
+    AddTarget("c.foo")
 
     assert generateDependencyList() == context.deps
 
@@ -486,8 +486,8 @@ del fooBuilder
     subReMakeFile = """
 Rule(targets="b", deps="aa", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
-Target("b")
-Target("b.foo")
+AddTarget("b")
+AddTarget("b.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -511,8 +511,8 @@ Target("b.foo")
     os.chdir("/tmp/remake_subdir")
     Rule(targets="b", deps="aa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
-    Target("b")
-    Target("b.foo")
+    AddTarget("b")
+    AddTarget("b.foo")
 
     assert generateDependencyList() == context.deps
 
@@ -527,8 +527,8 @@ fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
-Target("b")
-Target("b.foo")
+AddTarget("b")
+AddTarget("b.foo")
 del fooBuilder
 """
     subReMakeFile = """
@@ -557,8 +557,8 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="b", deps="a", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    Target("b")
-    Target("b.foo")
+    AddTarget("b")
+    AddTarget("b.foo")
 
     assert generateDependencyList() == context.deps
 
@@ -579,14 +579,14 @@ del fooBuilder
     subReMakeFile = """
 Rule(targets="b", deps="aa", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
-Target("b")
-Target("b.foo")
+AddTarget("b")
+AddTarget("b.foo")
 """
     subReMakeFile2 = """
 Rule(targets="b", deps="aaa", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
-Target("b")
-Target("b.foo")
+AddTarget("b")
+AddTarget("b.foo")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -614,8 +614,8 @@ Target("b.foo")
     os.chdir("/tmp/remake_subdir")
     Rule(targets="b", deps="aa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
-    Target("b")
-    Target("b.foo")
+    AddTarget("b")
+    AddTarget("b.foo")
     assert generateDependencyList() == context.deps
 
     getCurrentContext().clearRules()
@@ -626,8 +626,8 @@ Target("b.foo")
     os.chdir("/tmp/remake_subdir2")
     Rule(targets="b", deps="aaa", builder=fooBuilder)
     PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
-    Target("b")
-    Target("b.foo")
+    AddTarget("b")
+    AddTarget("b.foo")
     assert generateDependencyList() == context2.deps
 
 
@@ -646,8 +646,8 @@ del fooBuilder
     subReMakeFile = """
 Rule(targets="c", deps="../b", builder=fooBuilder)
 PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
-Target("c")
-Target("c.baz")
+AddTarget("c")
+AddTarget("c.baz")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -673,8 +673,8 @@ Target("c.baz")
     Rule(targets="c", deps="../b", builder=fooBuilder)
     PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
     os.chdir("/tmp")
-    Target("remake_subdir/c")
-    Target("remake_subdir/c.baz")
+    AddTarget("remake_subdir/c")
+    AddTarget("remake_subdir/c.baz")
     assert generateDependencyList() == context.deps
 
 
@@ -688,15 +688,15 @@ fooBuilder = Builder(action="Magically creating $@ from $<")
 SubReMakeDir("/tmp/remake_subdir")
 Rule(targets="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
 PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
-Target("c")
-Target("c.baz")
+AddTarget("c")
+AddTarget("c.baz")
 del fooBuilder
 """
     subReMakeFile = """
 Rule(targets="b", deps="a", builder=fooBuilder)
 PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
-Target("b")
-Target("b.baz")
+AddTarget("b")
+AddTarget("b.baz")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -718,8 +718,8 @@ Target("b.baz")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
     PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
-    Target("c")
-    Target("c.baz")
+    AddTarget("c")
+    AddTarget("c.baz")
     assert generateDependencyList() == context.deps
 
 
@@ -757,25 +757,25 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
 
     # Two targets same rule.
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    Target("a")
-    Target("b")
+    AddTarget("a")
+    AddTarget("b")
     assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_1)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two targets same rule (no deps).
     r_2 = Rule(targets=["a", "b"], builder=fooBuilder)
-    Target("a")
-    Target("b")
+    AddTarget("a")
+    AddTarget("b")
     assert generateDependencyList() == [(("/tmp/a", "/tmp/b"), r_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Three targets same rule.
     r_3 = Rule(targets=["a", "b", "c"], deps="d", builder=fooBuilder)
-    Target("a")
-    Target("b")
-    Target("c")
+    AddTarget("a")
+    AddTarget("b")
+    AddTarget("c")
     assert generateDependencyList() == ["/tmp/d", (("/tmp/a", "/tmp/b", "/tmp/c"), r_3)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
@@ -783,10 +783,10 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     # Two targets two same rules.
     r_4_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     r_4_2 = Rule(targets=["d", "e"], deps="f", builder=fooBuilder)
-    Target("a")
-    Target("b")
-    Target("d")
-    Target("e")
+    AddTarget("a")
+    AddTarget("b")
+    AddTarget("d")
+    AddTarget("e")
     assert generateDependencyList() == [
         "/tmp/c",
         (("/tmp/a",
@@ -803,10 +803,10 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     # Two levels.
     r_5_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     r_5_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
-    Target("a")
-    Target("b")
-    Target("d")
-    Target("e")
+    AddTarget("a")
+    AddTarget("b")
+    AddTarget("d")
+    AddTarget("e")
     assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_5_1), (("/tmp/d", "/tmp/e"), r_5_2)]
 
 
@@ -820,10 +820,10 @@ def test_16_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     fooBuilder = Builder(action="Magically creating $@ from $<")
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     r_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
-    Target("a")
-    Target("b")
-    Target("d")
-    Target("e")
+    AddTarget("a")
+    AddTarget("b")
+    AddTarget("d")
+    AddTarget("e")
     os.chdir("/tmp")
     assert buildDeps(generateDependencyList()) == [(("/tmp/a", "/tmp/b"), r_1), (("/tmp/d", "/tmp/e"), r_2)]
 
@@ -841,7 +841,7 @@ def test_17_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
         pass
 
     r_1 = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
-    Target(TMP_FILE)
+    AddTarget(TMP_FILE)
     assert buildDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
     assert os.path.isfile(TMP_FILE)
     assert cleanDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
@@ -870,7 +870,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     # Dependency graph should not changed (i) after the rule is called, and (ii) after the dep is renewed.
     pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
     r_2 = Rule(targets="a", deps="b", builder=touchBuilder)
-    Target("a")
+    AddTarget("a")
     dep1 = generateDependencyList()
     r_2.apply(None)
     dep2 = generateDependencyList()
@@ -885,7 +885,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     # Call to buildDeps
     pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
     r_3 = Rule(targets="a", deps="b", builder=touchBuilder)
-    Target("a")
+    AddTarget("a")
     assert buildDeps(generateDependencyList()) == []
     time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
@@ -898,7 +898,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     ReMakeFile = f"""
 touchBuilder = Builder(action="touch $@")
 Rule(targets="a", deps="b", builder=touchBuilder)
-Target("a")
+AddTarget("a")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
@@ -951,7 +951,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     # Here: a more recent than b more recent than c.
     r_2_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_2_2 = Rule(targets="a", deps="b", builder=touchBuilder)
-    Target("a")
+    AddTarget("a")
     dep1 = generateDependencyList()
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
@@ -976,7 +976,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     # Here: a more recent than b more recent than c.
     r_3_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_3_2 = Rule(targets="a", deps="b", builder=touchBuilder)
-    Target("a")
+    AddTarget("a")
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
     assert buildDeps(generateDependencyList()) == []
@@ -1001,7 +1001,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
 touchBuilder = Builder(action="touch $@")
 Rule(targets="b", deps="c", builder=touchBuilder)
 Rule(targets="a", deps="b", builder=touchBuilder)
-Target("a")
+AddTarget("a")
 """
     with open("/tmp/ReMakeFile", "w+") as handle:
         handle.write(ReMakeFile)
