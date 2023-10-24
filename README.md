@@ -83,8 +83,8 @@ Rule(targets="output.txt", deps="input.txt", builder=fooBuilder)
 PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
 
 # Declare targets to be built.
-Target("output.txt")
-Target("output.bar")
+AddTarget("output.txt")
+AddTarget("output.bar")
 
 # Use SubReMakeFile to include a separate ReMakeFile
 SubReMakeFile("subfolder")
