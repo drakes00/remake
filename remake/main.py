@@ -394,7 +394,7 @@ class SubReMakeDir():
         executeReMakeFileFromDirectory(subDir)
 
 
-def executeReMakeFileFromDirectory(cwd, configFile=None):
+def executeReMakeFileFromDirectory(cwd, configFile=None, targets=None):
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
     absCwd = os.path.abspath(cwd)
@@ -403,7 +403,7 @@ def executeReMakeFileFromDirectory(cwd, configFile=None):
     os.chdir(absCwd)
 
     loadScript(configFile)
-    deps = generateDependencyList()
+    deps = generateDependencyList(targets)
     executedRules = []
     if CLEAN and deps:
         # We are in clean mode and there are deps to clean.
@@ -432,10 +432,13 @@ def loadScript(configFile=None):
     exec(script)
 
 
-def generateDependencyList():
+def generateDependencyList(targets=None):
     """Generates and sorts dependency list."""
     deps = []
-    for target in getCurrentContext().targets:
+    if not targets:
+        targets = getCurrentContext().targets
+
+    for target in targets:
         deps += [findBuildPath(target)]
 
     deps = sortDeps(deps)
@@ -715,7 +718,13 @@ def main():
         type=str,
         default=None,
     )
-    args = argparser.parse_args()
+    argparser.add_argument(
+        "targets",
+        type=str,
+        nargs='*',
+        default=argparse.SUPPRESS,
+    )
+    args = argparser.parse_intermixed_args()
 
     # Global arguments handling.
     if args.verbose:
@@ -728,7 +737,11 @@ def main():
     if args.clean:
         setClean()
 
-    executeReMakeFileFromDirectory(os.getcwd(), configFile=args.config_file)
+    # Handling target.
+    if not "targets" in args:
+        args.targets = None
+
+    executeReMakeFileFromDirectory(os.getcwd(), configFile=args.config_file, targets=args.targets)
 
 
 if __name__ == "__main__":

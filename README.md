@@ -26,6 +26,8 @@ structures.
   displays actions without executing them.
 - **Clean Mode:** ReMake can clean generated files using the clean mode (`-c`
   or `--clean`), removing specified targets.
+- **Target Selection:** ReMake supports building a specific target given in
+  command-line.
 - **Rich Progress Output:** ReMake uses the `rich` library to display progress
   information in a clear and visually appealing way.
 - **SubReMakeFile Support:** Use `SubReMakeFile` keyword to cut the build process into
@@ -49,9 +51,10 @@ point is the automatically parsed `ReMakeFile`, and the build process is
 initiated by running:
 
 ```bash
-remake
+remake [target]
 ```
 
+`target` is an optionnal absolute path to a target specified in the ReMakeFile.
 Key command-line options include:
 
 - `-v` or `--verbose`: Enable verbose mode.

@@ -1020,3 +1020,25 @@ AddTarget("a")
     r_4_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_4_2 = Rule(targets="a", deps="b", builder=touchBuilder)
     assert context.executedRules == [("/tmp/b", r_4_1), ("/tmp/a", r_4_2)]
+
+
+@test("Making specific targets")
+def test_20_specificTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Making specific targets"""
+
+    ReMakeFile = """
+fooBuilder = Builder(action="Magically creating $@ from $<")
+Rule(targets="a", deps=["c", "a2", "b1"], builder=fooBuilder)
+Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
+Rule(targets="b1", deps=["a1"], builder=fooBuilder)
+Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
+PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+AddTarget("d")
+AddTarget("d.foo")
+"""
+    with open("/tmp/ReMakeFile", "w+") as handle:
+        handle.write(ReMakeFile)
+
+    setDryRun()
+    setDevTest()
+    context = executeReMakeFileFromDirectory("/tmp")
