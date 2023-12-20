@@ -1,3 +1,7 @@
+<center>
+<img src="./doc/logo.png" width="300" height="300" alt="Logo" />
+</center>
+
 # ReMake
 
 ReMake is a Python-based make-like tool that simplifies the process of defining

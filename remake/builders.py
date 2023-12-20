@@ -13,10 +13,10 @@ from remake.main import Builder
 
 def _tex2pdf(deps, _, _2, cmd="pdflatex"):
     latexFile = deps[0].replace(".tex", "")
-    subprocess.run([cmd, latexFile])
-    subprocess.run(["bibtex", latexFile])
-    subprocess.run([cmd, latexFile])
-    subprocess.run([cmd, latexFile])
+    subprocess.run([cmd, latexFile], check=True)
+    subprocess.run(["bibtex", latexFile], check=True)
+    subprocess.run([cmd, latexFile], check=True)
+    subprocess.run([cmd, latexFile], check=True)
 
 
 tex2pdf = Builder(action=_tex2pdf)
@@ -26,15 +26,15 @@ tex2pdf = Builder(action=_tex2pdf)
 # ==================================================
 
 
-def _gcc(deps, targets, _2, cflags=""):
-    subprocess.run(["gcc", cflags, "-o", targets[0]])
+def _gcc(_, targets, _2, cflags=""):
+    subprocess.run(["gcc", cflags, "-o", targets[0]], check=True)
 
 
 gcc = Builder(action=_gcc)
 
 
-def _clang(deps, targets, _2, cflags=""):
-    subprocess.run(["clang", cflags, "-o", targets[0]])
+def _clang(_, targets, _2, cflags=""):
+    subprocess.run(["clang", cflags, "-o", targets[0]], check=True)
 
 
 clang = Builder(action=_clang)

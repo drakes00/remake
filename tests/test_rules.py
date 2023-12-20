@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Unit tests related to rules."""
 
 import os
 
@@ -13,6 +14,7 @@ TMP_FILE = "/tmp/remake.tmp"
 
 @fixture
 def ensureCleanContext():
+    """Fixture clearing context before and after testcase."""
     getCurrentContext().clearRules()
     yield
     getCurrentContext().clearRules()

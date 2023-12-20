@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Unit tests related to builders."""
 
 import os
 from ward import test, fixture

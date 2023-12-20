@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Functional test cases."""
 
 import os
 import pathlib
@@ -8,7 +9,7 @@ import time
 
 from ward import test, raises, fixture
 
-from remake import Builder, Rule, PatternRule, AddTarget, AddVirtualTarget, VirtualTarget, VirtualDep
+from remake import Builder, Rule, PatternRule, AddTarget, VirtualTarget, VirtualDep
 from remake import findBuildPath, executeReMakeFileFromDirectory, buildDeps, cleanDeps, generateDependencyList, getCurrentContext, getOldContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
@@ -257,6 +258,10 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
         ("a",
          r_1): [VirtualDep("b")]
     }
+    assert findBuildPath("a") == {
+        ("a",
+         r_2): [VirtualDep("b")]
+    }
 
 
 @test("Rules must make targets")
@@ -298,7 +303,7 @@ PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     setDryRun()
@@ -317,7 +322,7 @@ AddTarget("d.foo")
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
-    assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
+    assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
     assert targets == ["/tmp/d", "/tmp/d.foo"]
 
@@ -326,7 +331,7 @@ AddTarget("d.foo")
 def test_06_parseSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Sub ReMakeFiles can be called"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 SubReMakeDir("/tmp/remake_subdir")
 """
     subReMakeFile = """
@@ -339,11 +344,11 @@ PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     setDryRun()
@@ -364,7 +369,7 @@ AddTarget("d.foo")
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
-    assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
+    assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
     assert targets == ["/tmp/remake_subdir/d", "/tmp/remake_subdir/d.foo"]
 
@@ -373,7 +378,7 @@ AddTarget("d.foo")
 def test_07_3levelsSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
     """3 levels of subfile"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 SubReMakeDir("/tmp/remake_subdir")
 """
     subReMakeFile = """
@@ -389,15 +394,15 @@ PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.mkdir("/tmp/remake_subdir2")
-    with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir2/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile2)
 
     setDryRun()
@@ -418,7 +423,7 @@ AddTarget("d.foo")
     r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
-    assert all([named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named))])
+    assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
     assert targets == ["/tmp/remake_subdir2/d", "/tmp/remake_subdir2/d.foo"]
 
@@ -427,7 +432,7 @@ AddTarget("d.foo")
 def test_08_accessParentRulesFromChild(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Parent rules and builders are accessible from subfile if not overriden"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
@@ -441,11 +446,11 @@ PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
 AddTarget("c")
 AddTarget("c.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.chdir("/tmp")
@@ -453,8 +458,6 @@ AddTarget("c.foo")
     setDevTest()
     executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
-    named, pattern = context.rules
-    targets = context.targets
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -475,7 +478,7 @@ AddTarget("c.foo")
 def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
@@ -489,11 +492,11 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.chdir("/tmp")
@@ -501,8 +504,6 @@ AddTarget("b.foo")
     setDevTest()
     executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp/remake_subdir")
-    named, pattern = context.rules
-    targets = context.targets
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -521,7 +522,7 @@ AddTarget("b.foo")
 def test_10_overrideParentRulesKeps(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile rules are removed at the end of subfile (parent's rules are kept)"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
@@ -536,11 +537,11 @@ print(fooBuilder)
 Rule(targets="b", deps="aa", builder=fooBuilder)
 PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.chdir("/tmp")
@@ -548,8 +549,6 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     setDevTest()
     executeReMakeFileFromDirectory("/tmp")
     context = getOldContext("/tmp")
-    named, pattern = context.rules
-    targets = context.targets
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -567,7 +566,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
 def test_11_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfile can override rules one after another"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
@@ -588,15 +587,15 @@ PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.mkdir("/tmp/remake_subdir2")
-    with open("/tmp/remake_subdir2/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir2/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile2)
 
     os.chdir("/tmp")
@@ -635,7 +634,7 @@ AddTarget("b.foo")
 def test_12_accessFilesParentDir(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Subfiles can access parent's deps with ../"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
@@ -649,11 +648,11 @@ PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
 AddTarget("c")
 AddTarget("c.baz")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.chdir("/tmp")
@@ -682,7 +681,7 @@ AddTarget("c.baz")
 def test_13_parentAccessSubfileTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Parents can access subfiles targets"""
 
-    ReMakeFile = f"""
+    ReMakeFile = """
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 SubReMakeDir("/tmp/remake_subdir")
@@ -698,11 +697,11 @@ PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.baz")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     os.mkdir("/tmp/remake_subdir")
-    with open("/tmp/remake_subdir/ReMakeFile", "w+") as handle:
+    with open("/tmp/remake_subdir/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(subReMakeFile)
 
     os.chdir("/tmp")
@@ -730,11 +729,11 @@ def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
     os.mkdir("/tmp/remake_subdir")
     os.mkdir("/tmp/remake_subdir/foo")
     os.mkdir("/tmp/remake_subdir/foo/bar")
-    open("/tmp/remake_subdir/non.x", "w+")
-    open("/tmp/remake_subdir/foo/a.x", "w+")
-    open("/tmp/remake_subdir/foo/b.x", "w+")
-    open("/tmp/remake_subdir/foo/bar/c.x", "w+")
-    open("/tmp/remake_subdir/foo/bar/d.x", "w+")
+    pathlib.Path("/tmp/remake_subdir/non.x").touch()
+    pathlib.Path("/tmp/remake_subdir/foo/a.x").touch()
+    pathlib.Path("/tmp/remake_subdir/foo/b.x").touch()
+    pathlib.Path("/tmp/remake_subdir/foo/bar/c.x").touch()
+    pathlib.Path("/tmp/remake_subdir/foo/bar/d.x").touch()
 
     os.chdir("/tmp/remake_subdir/foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
@@ -860,10 +859,10 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
 
     # Direct call to rule.apply
     r_1 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert r_1.apply(None) == False
+    assert r_1.apply(None) is False
     time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
-    assert r_1.apply(None) == True
+    assert r_1.apply(None) is True
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -895,12 +894,12 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
 
     # From ReMakeFile
     pathlib.Path("/tmp/a").touch()  # Ensure target is more recent that dep.
-    ReMakeFile = f"""
+    ReMakeFile = """
 touchBuilder = Builder(action="touch $@")
 Rule(targets="a", deps="b", builder=touchBuilder)
 AddTarget("a")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
     context = executeReMakeFileFromDirectory("/tmp")
     assert context.executedRules == []
@@ -930,14 +929,14 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     r_1_2 = Rule(targets="a", deps="b", builder=touchBuilder)
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
-    assert r_1_1.apply(None) == False
-    assert r_1_2.apply(None) == False
+    assert r_1_1.apply(None) is False
+    assert r_1_2.apply(None) is False
     time.sleep(0.01)
     pathlib.Path("/tmp/c").touch()
     # Here: c more recent than a more recent than b.
     # Rule should not check dependencies of dependencies.
     # This is the job of the dependency graph!
-    assert r_1_2.apply(None) == False
+    assert r_1_2.apply(None) is False
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -950,12 +949,12 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     pathlib.Path("/tmp/a").touch()
     # Here: a more recent than b more recent than c.
     r_2_1 = Rule(targets="b", deps="c", builder=touchBuilder)
-    r_2_2 = Rule(targets="a", deps="b", builder=touchBuilder)
+    Rule(targets="a", deps="b", builder=touchBuilder)
     AddTarget("a")
     dep1 = generateDependencyList()
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
-    assert r_2_1.apply(None) == False
+    assert r_2_1.apply(None) is False
     dep2 = generateDependencyList()
     assert dep1 == dep2
     time.sleep(0.01)
@@ -997,13 +996,13 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     time.sleep(0.01)  # Intermedite dep is now older that target.
     pathlib.Path("/tmp/a").touch()
     # Here: a more recent than b more recent than c.
-    ReMakeFile = f"""
+    ReMakeFile = """
 touchBuilder = Builder(action="touch $@")
 Rule(targets="b", deps="c", builder=touchBuilder)
 Rule(targets="a", deps="b", builder=touchBuilder)
 AddTarget("a")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
     context = executeReMakeFileFromDirectory("/tmp")
     # Here: a more recent than b more recent than c.
@@ -1036,9 +1035,9 @@ PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
-    with open("/tmp/ReMakeFile", "w+") as handle:
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     setDryRun()
     setDevTest()
-    context = executeReMakeFileFromDirectory("/tmp")
+    executeReMakeFileFromDirectory("/tmp")

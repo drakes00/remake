@@ -181,8 +181,11 @@ class Rule():
     _action = None
     _kwargs = None
 
-    def __init__(self, targets, builder, deps=[], ephemeral=False, **kwargs):
-        self._deps = self._parseDeps(deps)
+    def __init__(self, targets, builder, deps=None, ephemeral=False, **kwargs):
+        if deps is None:
+            self._deps = []
+        else:
+            self._deps = self._parseDeps(deps)
         self._targets = self._parseTargets(targets)
 
         self._action = builder.parseAction(self._deps, self._targets)
@@ -260,7 +263,7 @@ class Rule():
         """
 
         # Check if rule is already applied (all targets are already made).
-        if all([not shouldRebuild(target, self._deps) for target in self._targets]):
+        if all(not shouldRebuild(target, self._deps) for target in self._targets):
             return False
 
         # If we are not in dry run mode, ensure dependencies were made before the rule is applied.
@@ -323,7 +326,7 @@ class PatternRule(Rule):
     """Pattern rule class (e.g., %.pdf:%.tex)."""
     _exclude = []
 
-    def __init__(self, target, deps, builder, exclude=[]):
+    def __init__(self, target, deps, builder, exclude=None):
         assert target.startswith("%")
         if isinstance(deps, list):
             for dep in deps:
@@ -332,7 +335,7 @@ class PatternRule(Rule):
             assert deps.startswith("%")
         else:
             raise NotImplementedError
-        self._exclude = exclude
+        self._exclude = [] if exclude is None else exclude
         super().__init__(targets=target, deps=deps, builder=builder)
 
     def _register(self):
@@ -346,7 +349,7 @@ class PatternRule(Rule):
         """Check if `other` matches dependency pattern and is not in exclude list.
         If True, returns corresponding target names.
         Else, returns []."""
-        if any([other.endswith(_) for _ in self._exclude]):
+        if any(other.endswith(_) for _ in self._exclude):
             return []
 
         ret = []
@@ -515,7 +518,7 @@ def findBuildPath(target):
         elif DRY_RUN:
             # If we are in dev mode, deps might not exit, just assume it's OK.
             return target
-        elif isinstance(target, VirtualTarget) or isinstance(target, VirtualDep):
+        elif isinstance(target, (VirtualTarget, VirtualDep)):
             # Target is virtual and is not supposed to be a file, just assume it's OK.
             return target
         else:
@@ -571,8 +574,8 @@ def optimizeDeps(deps):
                     # If there are other targets, merge them.
                     allTargetsSameRule = [_[0] for _ in otherTargets] + [target[0]]
                     allTargetsSameRule = tuple(
-                        [i for n,
-                         i in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]]
+                        i for n,
+                        i in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
                     )
 
                     ret += [(allTargetsSameRule, target[1])]
@@ -738,7 +741,7 @@ def main():
         setClean()
 
     # Handling target.
-    if not "targets" in args:
+    if "targets" not in args:
         args.targets = None
 
     executeReMakeFileFromDirectory(os.getcwd(), configFile=args.config_file, targets=args.targets)

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+"""Allowing to run module directly."""
 
 import remake.main
 
