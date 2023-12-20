@@ -1,6 +1,6 @@
-<center>
-<img src="./doc/logo.png" width="300" height="300" alt="Logo" />
-</center>
+<p align="center">
+  <img src="./doc/logo.png" width="300" height="300" alt="Logo" />
+</p>
 
 # ReMake
 
