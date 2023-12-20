@@ -19,7 +19,7 @@ jobs:
       with:
         python-root-list: "remake tests"
         use-pylint: true
-        extra-pylint-options: "-d C0301"
+        extra-pylint-options: "-d C0103,C0301"
         use-pycodestyle: false
         use-flake8: false
         use-black: false
