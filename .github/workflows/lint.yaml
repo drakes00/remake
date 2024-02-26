@@ -21,3 +21,4 @@ jobs:
         glob_pattern: "remake tests"
         pylint_rc: ".github/workflows/pylintrc"
         pylint_args: "--fail-under=9.5"
+        reporter: "local"
