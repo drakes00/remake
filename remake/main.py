@@ -208,7 +208,10 @@ class Builder():
         return self._action == other._action
 
     def __hash__(self):
-        return hash(tuple(self._action))
+        if isinstance(self._action, list):
+            return hash(tuple(self._action))  # Hash based on list action
+        else:
+            return hash(id(self._action))  # Hash based on function
 
     def _register(self) -> None:
         getCurrentContext().addBuilder(self)
