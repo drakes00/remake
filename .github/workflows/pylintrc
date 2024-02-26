@@ -1,0 +1,25 @@
+[BASIC]
+variable-rgx=(([a-z][a-zA-Z0-9]{2,30})|(_[a-zA-Z0-9]*))$
+argument-rgx=(([a-z][a-zA-Z0-9]{2,30})|(_[a-zA-Z0-9]*))$
+attr-rgx=(([a-z][a-zA-Z0-9]{2,30})|(_[a-zA-Z0-9]*))$
+function-rgx=(test_(\d+)_)?[a-z]+((\d)|([A-Z0-9][a-z0-9]+))*([A-Z])?$
+method-rgx=(([a-z][a-zA-Z0-9]{2,30})|(_[a-zA-Z0-9]*)|(__[a-zA-Z0-9]{2,30}__))$
+const-rgx=(([A-Z_][A-Z0-9_]*)|(__.*__))$
+
+# Good variable names which should always be accepted, separated by a comma
+good-names=i,j,k,n,e,me
+
+# Bad variable names which should always be refused, separated by a comma
+bad-names=foo,bar,baz,toto,tutu,tata
+
+# Minimum number of public methods for a class (see R0903).
+min-public-methods=0
+
+# Maximum number of arguments for function / method
+max-args=12
+
+# Maximum number of attributes for a class (see R0902).
+max-attributes=20
+
+[MESSAGES CONTROL]
+disable=C0301,W0603,C0103,C1803,R1705,R1720
