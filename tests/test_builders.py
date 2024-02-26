@@ -55,7 +55,7 @@ def test_03_builderAutoVar():
 
     builder = Builder(action="cp $^ $@")
     rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=builder)
-    assert rule.action == f"cp {TMP_FILE} {TMP_FILE}"
+    assert rule.actionName == f"cp {TMP_FILE} {TMP_FILE}"
     getCurrentContext().clearRules()
 
 

@@ -3,7 +3,7 @@
 from remake.builders import tex2pdf
 
 # Compile any .tex file into .pdf file.
-rule = PatternRule(deps="%.tex", target="%.pdf", builder=tex2pdf)
+rule = PatternRule(deps="*.tex", target="*.pdf", builder=tex2pdf)
 AddTarget(rule.allTargets)
 
 # Compile specific .tex file into .pdf file.

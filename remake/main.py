@@ -3,6 +3,7 @@
 """Main funtions of ReMake."""
 
 import argparse
+from collections.abc import Callable
 import glob
 import os
 import pathlib
@@ -10,11 +11,13 @@ import re
 import subprocess
 import sys
 
+from typeguard import typechecked
+
 from collections import deque
 from rich.progress import Progress
 from rich.console import Console
 
-from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, resetOldContexts
+from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, resetOldContexts, Context
 
 VERBOSE = False
 DRY_RUN = False
@@ -22,56 +25,143 @@ DEV_TEST = False
 CLEAN = False
 
 
-def setDryRun():
+@typechecked()
+def setDryRun() -> None:
     """Sets run to dry run mode."""
     global DRY_RUN
     DRY_RUN = True
 
 
-def setVerbose():
+@typechecked()
+def setVerbose() -> None:
     """Sets run to verbose mode."""
     global VERBOSE
     VERBOSE = True
 
 
-def setDevTest():
+@typechecked()
+def setDevTest() -> None:
     """Sets run to development mode."""
     global DEV_TEST
     DEV_TEST = True
 
 
-def setClean():
+@typechecked()
+def setClean() -> None:
     """Sets run to clean mode."""
     global CLEAN
     CLEAN = True
 
 
-def unsetDryRun():
+@typechecked()
+def unsetDryRun() -> None:
     """Sets run to NOT dry run mode."""
     global DRY_RUN
     DRY_RUN = False
 
 
-def unsetVerbose():
+@typechecked()
+def unsetVerbose() -> None:
     """Sets run to NOT verbose mode."""
     global VERBOSE
     VERBOSE = False
 
 
-def unsetDevTest():
+@typechecked()
+def unsetDevTest() -> None:
     """Sets run to NOT development mode."""
     global DEV_TEST
     DEV_TEST = False
     resetOldContexts()
 
 
-def unsetClean():
+@typechecked()
+def unsetClean() -> None:
     """Sets run to NOT clean mode."""
     global CLEAN
     CLEAN = False
 
 
-def shouldRebuild(target, deps):
+@typechecked()
+class AddTarget():
+    """Class registering files as remake targets."""
+    def __init__(self, targets: list[str | pathlib.Path] | str | pathlib.Path):
+        if isinstance(targets, (str, pathlib.Path)):
+            getCurrentContext().addTargets(pathlib.Path(targets).absolute())
+        elif isinstance(targets, list):
+            getCurrentContext().addTargets([pathlib.Path(_).absolute() for _ in targets])
+
+
+@typechecked()
+class VirtualTarget():
+    """Class representing remake targets that are not files."""
+    def __init__(self, name: str):
+        self._name = name
+
+    def __str__(self):
+        return self._name
+
+    def __hash__(self):
+        return hash(self._name)
+
+    def __eq__(self, other):
+        return isinstance(other, VirtualTarget) and self._name == other._name
+
+    def __lt__(self, other):
+        return self._name < other._name
+
+
+@typechecked()
+class AddVirtualTarget(VirtualTarget):
+    """Class registering remake targets that are not files."""
+    def __init__(self, name: str):
+        super().__init__(name)
+        getCurrentContext().addTargets(self)
+
+
+@typechecked()
+class VirtualDep():
+    """Class registering remake dependencies that are not files."""
+    def __init__(self, name: str):
+        self._name = name
+
+    def __str__(self):
+        return self._name
+
+    def __hash__(self):
+        return hash(self._name)
+
+    def __eq__(self, other):
+        return isinstance(other, VirtualDep) and self._name == other._name
+
+
+@typechecked()
+class GlobPattern():
+    """Class registering remake dependencies that are glob patterns of pattern rules (e.g., *.foo)."""
+    def __init__(self, pattern: str):
+        self._pattern = pattern
+
+    def __str__(self):
+        return self._pattern
+
+    def __hash__(self):
+        return hash(self._pattern)
+
+    def __eq__(self, other):
+        return isinstance(other, GlobPattern) and self._pattern == other._pattern
+
+    @property
+    def pattern(self) -> str:
+        return self._pattern
+
+    @property
+    def suffix(self):
+        # '*' is expected to be first character by PatternRule.__init__
+        return self._pattern[1:]
+
+
+@typechecked()
+def shouldRebuild(target: VirtualTarget | pathlib.Path, deps: list[VirtualDep | pathlib.Path]):
     """Returns True if target should be built, False else.
     Target is built is not existing or if any dependency is more recent."""
     if isinstance(target, VirtualTarget):
@@ -94,108 +184,99 @@ def shouldRebuild(target, deps):
         return False
 
 
-class AddTarget():
-    """Class registering files as remake targets."""
-    def __init__(self, targets):
-        if isinstance(targets, str):
-            getCurrentContext().addTargets(os.path.abspath(targets))
-        elif isinstance(targets, list):
-            getCurrentContext().addTargets([os.path.abspath(_) for _ in targets])
-
-
-class VirtualTarget():
-    """Class representing remake targets that are not files."""
-    def __init__(self, name):
-        self._name = name
-
-    def __str__(self):
-        return self._name
-
-    def __hash__(self):
-        return hash(self._name)
-
-    def __eq__(self, other):
-        return isinstance(other, VirtualTarget) and self._name == other._name
-
-    def __lt__(self, other):
-        return self._name < other._name
-
-
-class AddVirtualTarget(VirtualTarget):
-    """Class registering remake targets that are not files."""
-    def __init__(self, name):
-        super().__init__(name)
-        getCurrentContext().addTargets(self)
-
-
-class VirtualDep():
-    """Class registering remake dependencies that are not files."""
-    def __init__(self, name):
-        self._name = name
-
-    def __str__(self):
-        return self._name
-
-    def __hash__(self):
-        return hash(self._name)
-
-    def __eq__(self, other):
-        return isinstance(other, VirtualDep) and self._name == other._name
-
-
+@typechecked()
 class Builder():
     """Generic builder class."""
     _action = None
 
-    def __init__(self, action, ephemeral=False):
-        self._action = action
+    def __init__(
+        self,
+        action: list[str] | str | Callable[[list[str],
+                                            list[str],
+                                            Console],
+                                           None],
+        ephemeral: bool = False
+    ):
+        if isinstance(action, str):
+            self._action = action.split(" ")
+        else:
+            self._action = action
         if not ephemeral:
             self._register()
 
-    def _register(self):
+    def __eq__(self, other):
+        return self._action == other._action
+
+    def __hash__(self):
+        return hash(tuple(self._action))
+
+    def _register(self) -> None:
         getCurrentContext().addBuilder(self)
 
-    def parseAction(self, deps, targets):
+    def parseAction(
+        self,
+        deps: list[VirtualDep | pathlib.Path | GlobPattern],
+        targets: list[VirtualTarget | pathlib.Path | GlobPattern]
+    ) -> list[str] | Callable[[list[str],
+                               list[str],
+                               Console],
+                              None]:
         """Parses builder action for automatic variables ($@, etc)."""
-        if isinstance(self._action, str):
+        def _replace_in_action(llist, pattern, repl):
+            try:
+                i = llist.index(pattern)
+            except ValueError:
+                return llist
+            return llist[:i] + repl + llist[i + 1:]
+
+        if isinstance(self._action, list):
             ret = self._action
+            ret = _replace_in_action(ret, "$@", targets)
             if deps:
-                ret = ret.replace("$<", " ".join([str(_) for _ in deps]))
-                ret = ret.replace("$^", str(deps[0]))
-            ret = ret.replace("$@", " ".join([str(_) for _ in targets]))
-            ret = ret.split(" ")
+                ret = _replace_in_action(ret, "$^", [deps[0]])
+                ret = _replace_in_action(ret, "$<", deps)
             return ret
 
         return self._action
 
     @property
-    def action(self):
+    def action(self) -> Callable[[list[str], list[str], Console], None]:
         """Returns builder's action."""
         return self._action
 
+    @property
+    def type(self):
+        """Returns build's action's type (list vs. callable)."""
+        return type(self._action)
 
+
+@typechecked()
 class Rule():
     """Generic rule class."""
     _deps = []
     _targets = []
-    _action = None
+    _builder = None
     _kwargs = None
 
-    def __init__(self, targets, builder, deps=None, ephemeral=False, **kwargs):
-        if deps is None:
-            self._deps = []
-        else:
-            self._deps = self._parseDeps(deps)
+    def __init__(
+        self,
+        targets: list[VirtualTarget | str | pathlib.Path] | VirtualTarget | str | pathlib.Path,
+        builder: Builder,
+        deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path = [],
+        ephemeral: bool = False,
+        **kwargs
+    ):
+        self._deps = self._parseDeps(deps)
         self._targets = self._parseTargets(targets)
 
-        self._action = builder.parseAction(self._deps, self._targets)
+        self._builder = builder
         self._kwargs = kwargs
         if not ephemeral:
             self._register()
 
-    def _parseDeps(self, deps):
-        if isinstance(deps, str):
-            # Dep is a single string, need to be expanded to absolute path.
+    def _parseDeps(self, deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path):
+        if isinstance(deps, (str, pathlib.Path)):
+            # Dep is a single string or pathlib path, need to be expanded to absolute path.
             return [self._expandToAbsPath(deps)]
         elif isinstance(deps, VirtualDep):
             # Dep is a single virtual dep, no need to expand.
@@ -205,7 +286,7 @@ class Rule():
         if isinstance(deps, list):
             # Dep is a list, iterate over elements
             for dep in deps:
-                if isinstance(dep, str):
+                if isinstance(dep, (str, pathlib.Path)):
                     ret += [self._expandToAbsPath(dep)]
                 elif isinstance(dep, VirtualDep):
                     ret += [dep]
@@ -216,9 +297,9 @@ class Rule():
 
         return ret
 
-    def _parseTargets(self, targets):
-        if isinstance(targets, str):
-            # Target is a single string, need to be expanded to absolute path.
+    def _parseTargets(self, targets: list[VirtualTarget | str | pathlib.Path] | VirtualTarget | str | pathlib.Path):
+        if isinstance(targets, (str, pathlib.Path)):
+            # Target is a single string or pathlib path, need to be expanded to absolute path.
             return [self._expandToAbsPath(targets)]
         elif isinstance(targets, VirtualTarget):
             # Target is a single virtual target, no need to expand.
@@ -228,7 +309,7 @@ class Rule():
         if isinstance(targets, list):
             # Target is a list, iterate over elements
             for target in targets:
-                if isinstance(target, str):
+                if isinstance(target, (str, pathlib.Path)):
                     ret += [self._expandToAbsPath(target)]
                 elif isinstance(target, VirtualTarget):
                     ret += [target]
@@ -239,25 +320,20 @@ class Rule():
 
         return ret
 
-    def _register(self):
+    def _register(self) -> None:
         getCurrentContext().addNamedRule(self)
 
-    def _expandToAbsPath(self, filename):
+    def _expandToAbsPath(self, filename: str | pathlib.Path) -> pathlib.Path:
         """Expands dep or target to absolute path."""
-        return os.path.abspath(filename)
+        return pathlib.Path(filename).resolve()
 
-    def __eq__(self, other):
-        return (self._targets, self._deps, self._action) == (other._targets, other._deps, other._action)
+    def __eq__(self, other) -> bool:
+        return (self._targets, self._deps, self._builder) == (other._targets, other._deps, other._builder)
 
     def __hash__(self):
-        try:
-            # When action is a function
-            return hash(tuple([tuple(self._targets), *self._deps, self._action]))
-        except TypeError:
-            # When action is a subprocess string list
-            return hash(tuple([tuple(self._targets), *self._deps, *self._action]))
+        return hash(tuple([tuple(self._targets), *self._deps, self._builder]))
 
-    def apply(self, console):
+    def apply(self, console: Console | Progress | None) -> bool:
         """Applies rule's action.
         Returns True if action was applied, False else.
         """
@@ -273,16 +349,16 @@ class Rule():
                     raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._targets}")
 
         # Apply the rule.
-        if isinstance(self._action, list):
+        if self._builder.type == list:
             subprocess.run(
-                " ".join(self._action),
+                " ".join(self.action),
                 shell=True,
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
                 check=True,
             )
         else:
-            self._action(self._deps, self._targets, console, **self._kwargs)
+            self._builder.action(self._deps, self._targets, console, **self._kwargs)
 
         # If we are not in dry run mode, ensure targets were made after the rule is applied.
         if not DRY_RUN:
@@ -293,111 +369,135 @@ class Rule():
         return True
 
     @property
-    def action(self):
+    def action(self) -> list[str]:
         """Return rule's action."""
-        if isinstance(self._action, list):
-            return " ".join(self._action)
+        action = self._builder.parseAction(self._deps, self._targets)
+        if isinstance(action, list):
+            ret = []
+            for elem in action:
+                if isinstance(elem, pathlib.Path):
+                    ret += [str(elem)]
+                elif isinstance(elem, GlobPattern):
+                    ret += [elem.pattern]
+                else:
+                    ret += [elem]
+            return ret
 
-        return f"{self._action}({self._deps}, {self._targets})"
+        return f"{action}({self._deps}, {self._targets})"
 
     @property
-    def actionName(self):
+    def actionName(self) -> str:
         """Return rule's action's description."""
-        if isinstance(self._action, list):
-            return " ".join(self._action)
+        action = self.action
+        if isinstance(action, list):
+            return " ".join(action)
 
-        if self._action.__doc__ is not None:
-            return self._action.__doc__
+        if action.__doc__ is not None:
+            return action.__doc__
 
-        return f"{self._action}({self._deps}, {self._targets})"
+        return f"{action}({self._deps}, {self._targets})"
 
     @property
-    def targets(self):
+    def targets(self) -> list[VirtualTarget | pathlib.Path | GlobPattern]:
         """Return rule's targets."""
         return self._targets
 
     @property
-    def deps(self):
+    def deps(self) -> list[VirtualDep | pathlib.Path | GlobPattern]:
         """Return rule's dependencies."""
         return self._deps
 
 
+@typechecked()
 class PatternRule(Rule):
-    """Pattern rule class (e.g., %.pdf:%.tex)."""
+    """Pattern rule class (e.g., *.pdf:*.tex)."""
     _exclude = []
 
-    def __init__(self, target, deps, builder, exclude=None):
-        assert target.startswith("%")
+    def __init__(self, target: str, deps: list[str] | str, builder: Builder, exclude: list[str] = []):
+        # FIXME Does not seem to handle PatternRules such as "a*.foo"
+        assert target.startswith("*")
         if isinstance(deps, list):
             for dep in deps:
-                assert dep.startswith("%")
+                assert dep.startswith("*")
         elif isinstance(deps, str):
-            assert deps.startswith("%")
+            assert deps.startswith("*")
         else:
             raise NotImplementedError
         self._exclude = [] if exclude is None else exclude
         super().__init__(targets=target, deps=deps, builder=builder)
 
-    def _register(self):
+    def _register(self) -> None:
         getCurrentContext().addPatternRule(self)
 
-    def _expandToAbsPath(self, filename):
+    def _expandToAbsPath(self, filename: str) -> GlobPattern:
         """PatternRules are not expanded!"""
-        return filename
+        return GlobPattern(filename)
 
-    def match(self, other):
+    @property
+    def targetPattern(self) -> str:
+        return self._targets[0].pattern
+
+    def match(self, other: pathlib.Path | str) -> list[pathlib.Path]:
         """Check if `other` matches dependency pattern and is not in exclude list.
-        If True, returns corresponding target names.
+        If True, returns corresponding dependencies names.
         Else, returns []."""
-        if any(other.endswith(_) for _ in self._exclude):
+        if isinstance(other, str):
+            other = pathlib.Path(other)
+
+        # Check if other is excluded from pattern rule.
+        if str(other) in self._exclude:
             return []
 
         ret = []
-        regex = self._targets[0].replace("%", "([a-zA-Z0-9_/-]*)")
-        occ = re.fullmatch(regex + "$", other)
-        if occ:
-            # Expanding the rule to generate deps file names.
+        assert all(isinstance(_, GlobPattern) for _ in self._targets)
+        if other.match(self.targetPattern):
             for dep in self._deps:
-                ret += [occ.expand(dep.replace("%", r"\1"))]
+                ret += [other.with_suffix(dep.suffix)]
 
         return ret
 
-    def expand(self, target):
+    def expand(self, target: pathlib.Path) -> Rule:
         """Expands pattern rule into named rule according to target's basename
-        (e.g., `pdflatex %.tex` into `pdflatex main.tex`)."""
-        # Recomputing basename to obtain deps.
-        basename = target.replace(self._targets[0].replace("%", ""), "")
-        assert target == self._targets[0].replace("%", basename)
+        (e.g., `pdflatex *.tex` into `pdflatex main.tex`)."""
+        assert target.match(self.targetPattern)
 
         # Computing deps and action string
-        deps = [dep.replace("%", basename) for dep in self._deps]
-        if isinstance(self._action, list):
-            action = " ".join(self._action).replace("%", basename)
+        # TODO Would be nice to remember target and deps position in builder's acition and replace them at the latest.
+        deps = [target.with_suffix(dep.suffix) for dep in self._deps]
+        if isinstance(self.action, list):
+            action = []
+            for elem in self.action:
+                if isinstance(elem, GlobPattern):
+                    action += [str(target.with_suffix(elem.suffix))]
+                else:
+                    action += [elem]
+            action = " ".join(action)
         else:
-            action = self._action
+            action = self.action
 
         # Return instancieted rule.
         return Rule(targets=target, deps=deps, builder=Builder(action=action, ephemeral=True), ephemeral=True)
 
     @property
-    def allTargets(self):
+    def allTargets(self) -> list[pathlib.Path]:
         """Returns all possible targets from globing possible dependencies."""
         allDeps = []
         for dep in self._deps:
-            starDep = dep.replace("%", "*")
-            allDeps += glob.glob(f"**/{starDep}", recursive=True)
+            allDeps += list(pathlib.Path(".").rglob(dep.pattern))
 
-        suffix = self._targets[0].replace("%", "")
+        suffix = self.targetPattern.replace("*", "")
         return [pathlib.Path(dep).with_suffix(suffix) for dep in allDeps]
 
 
+@typechecked()
 class SubReMakeDir():
     """Instanciate a sub context for a call to a sub ReMakeFile."""
     def __init__(self, subDir):
         executeReMakeFileFromDirectory(subDir)
 
 
-def executeReMakeFileFromDirectory(cwd, configFile=None, targets=None):
+@typechecked()
+def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", targets: list | None = None) -> Context:
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
     absCwd = os.path.abspath(cwd)
@@ -424,21 +524,26 @@ def executeReMakeFileFromDirectory(cwd, configFile=None, targets=None):
     return oldContext
 
 
-def loadScript(configFile=None):
+@typechecked()
+def loadScript(configFile: str = "ReMakeFile") -> None:
     """Loads and execs the ReMakeFile script."""
-    if configFile is None:
-        configFile = "ReMakeFile"
-
     with open(configFile, "r", encoding="utf-8") as handle:
         script = handle.read()
 
     exec(script)
 
 
-def generateDependencyList(targets=None):
+@typechecked()
+def generateDependencyList(
+    targets: list | None = None
+) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
+                                                    ...],
+                               Rule]] | tuple[pathlib.Path | tuple[pathlib.Path,
+                                                                   ...],
+                                              Rule]:
     """Generates and sorts dependency list."""
     deps = []
-    if not targets:
+    if targets is None:
         targets = getCurrentContext().targets
 
     for target in targets:
@@ -449,10 +554,16 @@ def generateDependencyList(targets=None):
     return deps
 
 
-def findBuildPath(target):
+@typechecked()
+def findBuildPath(
+    target: pathlib.Path | VirtualTarget | VirtualDep
+) -> VirtualTarget | VirtualDep | pathlib.Path | dict:
     """Constructs dependency graph from registered rules."""
     depNames = []
     foundRule = None
+
+    # import pdb
+    # pdb.set_trace()
 
     # Iterate over all contexts from the current context (leaf) to the parents (root).
     for context in reversed(getContexts()):
@@ -461,8 +572,8 @@ def findBuildPath(target):
         # First with named rules that will directly match the target.
         for rule in namedRules:
             for ruleTarget in rule.targets:
-                occ = re.fullmatch(str(ruleTarget), str(target))
-                if occ:
+                # Important to compare strings because targets can be of multiple type (str, pathlib.Path, virtual).
+                if re.fullmatch(str(ruleTarget), str(target)):
                     # Target found in rule's target.
                     depNames += rule.deps
                     foundRule = rule
@@ -482,7 +593,7 @@ def findBuildPath(target):
         for rule in patternRules:
             depNames = rule.match(str(target))
             if depNames:
-                # Since rule was an anonymous rule (with %),
+                # Since rule was an anonymous rule (with *),
                 # Expanding the rule to generate deps file names within match method.
                 foundRule = rule
                 break
@@ -527,7 +638,12 @@ def findBuildPath(target):
             sys.exit(1)
 
 
-def sortDeps(deps):
+@typechecked()
+def sortDeps(
+    deps: list[VirtualTarget | VirtualDep | pathlib.Path | dict]
+) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
+                                                    ...],
+                               Rule]]:
     """Sorts dependency graph as a reverse level order list.
     Snippet from: https://www.geeksforgeeks.org/reverse-level-order-traversal/"""
     tmpQueue = deque()
@@ -538,7 +654,7 @@ def sortDeps(deps):
 
         while tmpQueue:
             node = tmpQueue.popleft()
-            if isinstance(node, str):
+            if isinstance(node, pathlib.Path):
                 ret.appendleft(node)
             elif isinstance(node, dict):
                 ret.appendleft(list(node.keys())[0])
@@ -548,7 +664,14 @@ def sortDeps(deps):
     return list(ret)
 
 
-def optimizeDeps(deps):
+@typechecked()
+def optimizeDeps(
+    deps: list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
+                                                         ...],
+                                    Rule]]
+) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
+                                                    ...],
+                               Rule]]:
     """Removes rules from dependencies list """
     def _mergeTargetsSameRule(origDeps):
         """Remove duplicate calls to a rule that produces multiple dependencies."""
@@ -574,10 +697,10 @@ def optimizeDeps(deps):
                     # If there are other targets, merge them.
                     allTargetsSameRule = [_[0] for _ in otherTargets] + [target[0]]
                     allTargetsSameRule = tuple(
-                        i for n,
-                        i in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
+                        i for (n,
+                               i) in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
                     )
-
+                    allTargetsSameRule = allTargetsSameRule[0] if len(allTargetsSameRule) == 1 else allTargetsSameRule
                     ret += [(allTargetsSameRule, target[1])]
                     for otherTarget in otherTargets:
                         deps.remove(otherTarget)
@@ -615,7 +738,11 @@ def optimizeDeps(deps):
     return deps
 
 
-def cleanDeps(deps, configFile="ReMakeFile"):
+@typechecked()
+def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
+                                              Rule]],
+              configFile: str = "ReMakeFile") -> list[tuple[pathlib.Path,
+                                                            Rule]]:
     """Builds files marked as targets from their dependencies."""
     def _cleanDep(target):
         if os.path.isfile(target):
@@ -649,7 +776,12 @@ def cleanDeps(deps, configFile="ReMakeFile"):
     return deps
 
 
-def buildDeps(deps, configFile="ReMakeFile"):
+@typechecked()
+def buildDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
+                                              Rule]],
+              configFile: str = "ReMakeFile") -> list[tuple[pathlib.Path | tuple[pathlib.Path,
+                                                                                 pathlib.Path],
+                                                            Rule]]:
     """Builds files marked as targets from their dependencies."""
     rulesApplied = []
     with Progress() as progress:
@@ -682,7 +814,7 @@ def buildDeps(deps, configFile="ReMakeFile"):
 
                 if DRY_RUN:
                     progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.action}"
+                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.actionName}"
                     )
                     # Keep track of the rules applied for return.
                     rulesApplied += [(target, rule)]

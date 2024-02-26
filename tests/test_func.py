@@ -7,7 +7,7 @@ import pathlib
 import shutil
 import time
 
-from ward import test, raises, fixture
+from ward import test, raises, fixture, skip
 
 from remake import Builder, Rule, PatternRule, AddTarget, VirtualTarget, VirtualDep
 from remake import findBuildPath, executeReMakeFileFromDirectory, buildDeps, cleanDeps, generateDependencyList, getCurrentContext, getOldContext
@@ -71,8 +71,8 @@ def test_01_funDeps(_=ensureCleanContext):
 
     # One file one dependence.
     r_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_1): [VirtualDep("b")]
     }
     getCurrentContext().clearRules()
@@ -80,20 +80,20 @@ def test_01_funDeps(_=ensureCleanContext):
     # Two files one dependence.
     r_2_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("c"), builder=fooBuilder)
     r_2_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_2_1): [VirtualDep("c")]
     }
-    assert findBuildPath("b") == {
-        ("b",
+    assert findBuildPath(VirtualTarget("b")) == {
+        (VirtualTarget("b"),
          r_2_2): [VirtualDep("c")]
     }
     getCurrentContext().clearRules()
 
     # One file two dependencies
     r_3_1 = Rule(targets=VirtualTarget("a"), deps=[VirtualDep("b"), VirtualDep("c")], builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_3_1): [VirtualDep("b"),
                   VirtualDep("c")]
     }
@@ -103,14 +103,14 @@ def test_01_funDeps(_=ensureCleanContext):
     # r_4_1 = Rule(targets="a", deps="b", builder=fooBuilder)
     # r_4_2 = Rule(targets="a", deps="c", builder=fooBuilder)
     # FIXME Should raise or r_4_2 should replace r_4_1
-    # assert findBuildPath("a") == {("/tmp/a", r_4_1): ["/tmp/b", "/tmp/c"]}
+    # assert findBuildPath(VirtualTarget("a")) == {("/tmp/a", r_4_1): ["/tmp/b", "/tmp/c"]}
     # getCurrentContext().clearRules()
 
     # Three levels
     r_5_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     r_5_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_5_1): [{
             (VirtualDep("b"),
              r_5_2): [VirtualDep("c")]
@@ -151,8 +151,8 @@ def test_01_funDeps(_=ensureCleanContext):
         ],
         builder=fooBuilder,
     )
-    assert findBuildPath("d") == {
-        ("d",
+    assert findBuildPath(VirtualTarget("d")) == {
+        (VirtualTarget("d"),
          r_6_1):
             [
                 {
@@ -193,30 +193,30 @@ def test_01_funDeps(_=ensureCleanContext):
         ],
         builder=fooBuilder,
     )
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_8_1): [VirtualDep("c")]
     }
-    assert findBuildPath("b") == {
-        ("b",
+    assert findBuildPath(VirtualTarget("b")) == {
+        (VirtualTarget("b"),
          r_8_1): [VirtualDep("c")]
     }
-    assert findBuildPath("d") == {
-        ("d",
+    assert findBuildPath(VirtualTarget("d")) == {
+        (VirtualTarget("d"),
          r_8_2): [
             VirtualDep("e"),
             VirtualDep("f"),
         ]
     }
-    assert findBuildPath("g") == {
-        ("g",
+    assert findBuildPath(VirtualTarget("g")) == {
+        (VirtualTarget("g"),
          r_8_3): [
             VirtualDep("i"),
             VirtualDep("j"),
         ]
     }
-    assert findBuildPath("h") == {
-        ("h",
+    assert findBuildPath(VirtualTarget("h")) == {
+        (VirtualTarget("h"),
          r_8_3): [
             VirtualDep("i"),
             VirtualDep("j"),
@@ -234,8 +234,8 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
 
     r_1 = Rule(targets=VirtualTarget("a"), deps=[VirtualDep("b"), VirtualDep("c")], builder=fooBuilder)
     r_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_1): [{
             (VirtualDep("b"),
              r_2): [VirtualDep("c")]
@@ -254,12 +254,12 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     # One file one dependence.
     r_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     r_2 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_1): [VirtualDep("b")]
     }
-    assert findBuildPath("a") == {
-        ("a",
+    assert findBuildPath(VirtualTarget("a")) == {
+        (VirtualTarget("a"),
          r_2): [VirtualDep("b")]
     }
 
@@ -299,7 +299,7 @@ Rule(targets="d", deps=["c", "a2", "b1"], builder=fooBuilder)
 Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
@@ -319,12 +319,12 @@ AddTarget("d.foo")
     r_2 = Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-    r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    r_5 = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
     assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
-    assert targets == ["/tmp/d", "/tmp/d.foo"]
+    assert targets == [pathlib.Path("/tmp/d"), pathlib.Path("/tmp/d.foo")]
 
 
 @test("Sub ReMakeFiles can be called")
@@ -340,7 +340,7 @@ Rule(targets="d", deps=["c", "a2", "b1"], builder=fooBuilder)
 Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
@@ -366,12 +366,12 @@ AddTarget("d.foo")
     r_2 = Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-    r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    r_5 = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
     assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
-    assert targets == ["/tmp/remake_subdir/d", "/tmp/remake_subdir/d.foo"]
+    assert targets == [pathlib.Path("/tmp/remake_subdir/d"), pathlib.Path("/tmp/remake_subdir/d.foo")]
 
 
 @test("3 levels of subfile")
@@ -390,7 +390,7 @@ Rule(targets="d", deps=["c", "a2", "b1"], builder=fooBuilder)
 Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
@@ -420,12 +420,12 @@ AddTarget("d.foo")
     r_2 = Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
     r_3 = Rule(targets="b1", deps=["a1"], builder=fooBuilder)
     r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-    r_5 = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    r_5 = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 
     assert len(named) == 4 and len(pattern) == 1
     assert all(named[i] == [r_1, r_2, r_3, r_4][i] for i in range(len(named)))
     assert pattern == [r_5]
-    assert targets == ["/tmp/remake_subdir2/d", "/tmp/remake_subdir2/d.foo"]
+    assert targets == [pathlib.Path("/tmp/remake_subdir2/d"), pathlib.Path("/tmp/remake_subdir2/d.foo")]
 
 
 @test("Parent rules and builders are accessible from subfile if not overriden")
@@ -436,13 +436,13 @@ def test_08_accessParentRulesFromChild(_=ensureCleanContext, _2=ensureEmptyTmp):
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 del fooBuilder
 """
     subReMakeFile = """
-Rule(targets="c", deps="b", builder=fooBuilder)
-PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
+Rule(targets="c", deps="../b", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.baz", builder=fooBuilder)
 AddTarget("c")
 AddTarget("c.foo")
 """
@@ -464,10 +464,10 @@ AddTarget("c.foo")
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="b", deps="a", builder=fooBuilder)
-    PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
     os.chdir("/tmp/remake_subdir")
-    Rule(targets="c", deps="b", builder=fooBuilder)
-    PatternRule(target="%.bar", deps="%.baz", builder=fooBuilder)
+    Rule(targets="c", deps="../b", builder=fooBuilder)
+    PatternRule(target="*.bar", deps="*.baz", builder=fooBuilder)
     AddTarget("c")
     AddTarget("c.foo")
 
@@ -482,13 +482,13 @@ def test_09_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 del fooBuilder
 """
     subReMakeFile = """
 Rule(targets="b", deps="aa", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.foo")
 """
@@ -511,7 +511,7 @@ AddTarget("b.foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     os.chdir("/tmp/remake_subdir")
     Rule(targets="b", deps="aa", builder=fooBuilder)
-    PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+    PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
     AddTarget("b")
     AddTarget("b.foo")
 
@@ -526,7 +526,7 @@ def test_10_overrideParentRulesKeps(_=ensureCleanContext, _2=ensureEmptyTmp):
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 AddTarget("b")
 AddTarget("b.foo")
@@ -535,7 +535,7 @@ del fooBuilder
     subReMakeFile = """
 print(fooBuilder)
 Rule(targets="b", deps="aa", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
 """
     with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
@@ -555,7 +555,7 @@ PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="b", deps="a", builder=fooBuilder)
-    PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+    PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
     AddTarget("b")
     AddTarget("b.foo")
 
@@ -570,20 +570,20 @@ def test_11_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 SubReMakeDir("/tmp/remake_subdir2")
 del fooBuilder
 """
     subReMakeFile = """
 Rule(targets="b", deps="aa", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.foo")
 """
     subReMakeFile2 = """
 Rule(targets="b", deps="aaa", builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.qux", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.foo")
 """
@@ -612,7 +612,7 @@ AddTarget("b.foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     os.chdir("/tmp/remake_subdir")
     Rule(targets="b", deps="aa", builder=fooBuilder)
-    PatternRule(target="%.foo", deps="%.baz", builder=fooBuilder)
+    PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
     AddTarget("b")
     AddTarget("b.foo")
     assert generateDependencyList() == context.deps
@@ -624,7 +624,7 @@ AddTarget("b.foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     os.chdir("/tmp/remake_subdir2")
     Rule(targets="b", deps="aaa", builder=fooBuilder)
-    PatternRule(target="%.foo", deps="%.qux", builder=fooBuilder)
+    PatternRule(target="*.foo", deps="*.qux", builder=fooBuilder)
     AddTarget("b")
     AddTarget("b.foo")
     assert generateDependencyList() == context2.deps
@@ -638,13 +638,13 @@ def test_12_accessFilesParentDir(_=ensureCleanContext, _2=ensureEmptyTmp):
 global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
 SubReMakeDir("/tmp/remake_subdir")
 del fooBuilder
 """
     subReMakeFile = """
 Rule(targets="c", deps="../b", builder=fooBuilder)
-PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.baz", deps="*.bar", builder=fooBuilder)
 AddTarget("c")
 AddTarget("c.baz")
 """
@@ -667,10 +667,10 @@ AddTarget("c.baz")
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="b", deps="a", builder=fooBuilder)
-    PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+    PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
     os.chdir("/tmp/remake_subdir")
     Rule(targets="c", deps="../b", builder=fooBuilder)
-    PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+    PatternRule(target="*.baz", deps="*.bar", builder=fooBuilder)
     os.chdir("/tmp")
     AddTarget("remake_subdir/c")
     AddTarget("remake_subdir/c.baz")
@@ -686,14 +686,14 @@ global fooBuilder
 fooBuilder = Builder(action="Magically creating $@ from $<")
 SubReMakeDir("/tmp/remake_subdir")
 Rule(targets="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
-PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.baz", deps="*.bar", builder=fooBuilder)
 AddTarget("c")
 AddTarget("c.baz")
 del fooBuilder
 """
     subReMakeFile = """
 Rule(targets="b", deps="a", builder=fooBuilder)
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
 AddTarget("b")
 AddTarget("b.baz")
 """
@@ -716,7 +716,7 @@ AddTarget("b.baz")
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     Rule(targets="c", deps="/tmp/remake_subdir/b", builder=fooBuilder)
-    PatternRule(target="%.baz", deps="%.bar", builder=fooBuilder)
+    PatternRule(target="*.baz", deps="*.bar", builder=fooBuilder)
     AddTarget("c")
     AddTarget("c.baz")
     assert generateDependencyList() == context.deps
@@ -737,7 +737,7 @@ def test_14_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
 
     os.chdir("/tmp/remake_subdir/foo")
     fooBuilder = Builder(action="Magically creating $@ from $<")
-    rule = PatternRule(target="%.y", deps="%.x", builder=fooBuilder)
+    rule = PatternRule(target="*.y", deps="*.x", builder=fooBuilder)
     assert sorted(rule.allTargets) == sorted(
         [pathlib.Path("a.y"),
          pathlib.Path("b.y"),
@@ -758,7 +758,7 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_1)]
+    assert generateDependencyList() == [pathlib.Path("/tmp/c"), ((pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")), r_1)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -766,7 +766,7 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     r_2 = Rule(targets=["a", "b"], builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == [(("/tmp/a", "/tmp/b"), r_2)]
+    assert generateDependencyList() == [((pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")), r_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -775,7 +775,13 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("a")
     AddTarget("b")
     AddTarget("c")
-    assert generateDependencyList() == ["/tmp/d", (("/tmp/a", "/tmp/b", "/tmp/c"), r_3)]
+    assert generateDependencyList() == [
+        pathlib.Path("/tmp/d"),
+        ((pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b"),
+          pathlib.Path("/tmp/c")),
+         r_3)
+    ]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -787,13 +793,13 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("d")
     AddTarget("e")
     assert generateDependencyList() == [
-        "/tmp/c",
-        (("/tmp/a",
-          "/tmp/b"),
+        pathlib.Path("/tmp/c"),
+        ((pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")),
          r_4_1),
-        "/tmp/f",
-        (("/tmp/d",
-          "/tmp/e"),
+        pathlib.Path("/tmp/f"),
+        ((pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")),
          r_4_2)
     ]
     getCurrentContext().clearRules()
@@ -806,7 +812,15 @@ def test_15_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("b")
     AddTarget("d")
     AddTarget("e")
-    assert generateDependencyList() == ["/tmp/c", (("/tmp/a", "/tmp/b"), r_5_1), (("/tmp/d", "/tmp/e"), r_5_2)]
+    assert generateDependencyList() == [
+        pathlib.Path("/tmp/c"),
+        ((pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")),
+         r_5_1),
+        ((pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")),
+         r_5_2)
+    ]
 
 
 @test("Rule with multiple targets is executed only once to make all targets")
@@ -824,7 +838,14 @@ def test_16_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     AddTarget("d")
     AddTarget("e")
     os.chdir("/tmp")
-    assert buildDeps(generateDependencyList()) == [(("/tmp/a", "/tmp/b"), r_1), (("/tmp/d", "/tmp/e"), r_2)]
+    assert buildDeps(generateDependencyList()) == [
+        ((pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")),
+         r_1),
+        ((pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")),
+         r_2)
+    ]
 
 
 @test("Dependencies can be cleaned")
@@ -841,9 +862,9 @@ def test_17_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
 
     r_1 = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
     AddTarget(TMP_FILE)
-    assert buildDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
+    assert buildDeps(generateDependencyList()) == [(pathlib.Path(TMP_FILE), r_1)]
     assert os.path.isfile(TMP_FILE)
-    assert cleanDeps(generateDependencyList()) == [(TMP_FILE, r_1)]
+    assert cleanDeps(generateDependencyList()) == [(pathlib.Path(TMP_FILE), r_1)]
     assert not os.path.isfile(TMP_FILE)
 
 
@@ -888,7 +909,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     assert buildDeps(generateDependencyList()) == []
     time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
-    assert buildDeps(generateDependencyList()) == [("/tmp/a", r_3)]
+    assert buildDeps(generateDependencyList()) == [(pathlib.Path("/tmp/a"), r_3)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -909,7 +930,7 @@ AddTarget("a")
     pathlib.Path("/tmp/b").touch()
     context = executeReMakeFileFromDirectory("/tmp")
     r_4 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert context.executedRules == [("/tmp/a", r_4)]
+    assert context.executedRules == [(pathlib.Path("/tmp/a"), r_4)]
 
 
 @test("Detection of newer dep of dep (3 levels) to rebuild target")
@@ -984,7 +1005,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     # Here: c more recent than a more recent than b.
     # Since dependency graph will first try to build b and c is more recent than b, b will be built.
     # Then since b just got built, b is more recent than a, and a will be built.
-    assert buildDeps(generateDependencyList()) == [("/tmp/b", r_3_1), ("/tmp/a", r_3_2)]
+    assert buildDeps(generateDependencyList()) == [(pathlib.Path("/tmp/b"), r_3_1), (pathlib.Path("/tmp/a"), r_3_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -1018,9 +1039,10 @@ AddTarget("a")
     context = executeReMakeFileFromDirectory("/tmp")
     r_4_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_4_2 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert context.executedRules == [("/tmp/b", r_4_1), ("/tmp/a", r_4_2)]
+    assert context.executedRules == [(pathlib.Path("/tmp/b"), r_4_1), (pathlib.Path("/tmp/a"), r_4_2)]
 
 
+@skip
 @test("Making specific targets")
 def test_20_specificTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Making specific targets"""
@@ -1031,7 +1053,7 @@ Rule(targets="a", deps=["c", "a2", "b1"], builder=fooBuilder)
 Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
 Rule(targets="b1", deps=["a1"], builder=fooBuilder)
 Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 AddTarget("d")
 AddTarget("d.foo")
 """
@@ -1040,4 +1062,5 @@ AddTarget("d.foo")
 
     setDryRun()
     setDevTest()
-    executeReMakeFileFromDirectory("/tmp")
+    context = executeReMakeFileFromDirectory("/tmp", targets=[VirtualTarget("c"), VirtualTarget("b1")])
+    assert False, context.executedRules

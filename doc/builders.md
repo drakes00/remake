@@ -56,7 +56,7 @@ AddTarget("output.txt")
 Builders can also handle shell commands. In this case, the action is a shell
 command to create a file using the `touch` command.
 
-### 3. Handling Automatic Variables ($^, $@)
+### 3. Handling Automatic Variables (\$^, \$@)
 
 ```python
 builder = Builder(action="cp $^ $@")

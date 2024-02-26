@@ -3,13 +3,13 @@
 """Unit tests related to rules."""
 
 import os
+import pathlib
 
+from typeguard import TypeCheckError
 from ward import test, fixture, raises
 
-from remake import Builder, Rule, PatternRule, VirtualDep, VirtualTarget
+from remake import Builder, Rule, PatternRule, VirtualDep, VirtualTarget, GlobPattern
 from remake import unsetDryRun, unsetDevTest, getCurrentContext
-
-TMP_FILE = "/tmp/remake.tmp"
 
 
 @fixture
@@ -22,119 +22,197 @@ def ensureCleanContext():
     unsetDevTest()
 
 
-@test("Rules can be named")
-def test_01_namedRules(_=ensureCleanContext):
-    """Rules can be named"""
+@test("Named rules can accept absolute paths")
+def test_01_namedRulesAbsolutePath(_=ensureCleanContext):
+    """Named rules can accept absolute paths"""
 
+    os.chdir("/etc")  # Using a different directory than paths in rules.
     fooBuilder = Builder(action="Magically creating $@ from $^")
-    rule = Rule(targets=TMP_FILE, deps=TMP_FILE, builder=fooBuilder)
-    assert rule.deps == [TMP_FILE]
-    assert rule.targets == [TMP_FILE]
+
+    # Absolute paths as string.
+    r_1 = Rule(targets="/tmp/a", deps="/tmp/b", builder=fooBuilder)
+    assert r_1.deps == [pathlib.Path("/tmp/b")]
+    assert r_1.targets == [pathlib.Path("/tmp/a")]
+
+    # Pathlib absolute paths as string.
+    r_2 = Rule(targets=pathlib.Path("/tmp/a"), deps=pathlib.Path("/tmp/b"), builder=fooBuilder)
+    assert r_2.deps == [pathlib.Path("/tmp/b")]
+    assert r_2.targets == [pathlib.Path("/tmp/a")]
+
+    # Virtual absolute paths as string.
+    r_3 = Rule(targets=VirtualTarget("/tmp/a"), deps=VirtualDep("/tmp/b"), builder=fooBuilder)
+    assert r_3.deps == [VirtualDep("/tmp/b")]
+    assert r_3.targets == [VirtualTarget("/tmp/a")]
+
+
+@test("Named rules can accept relative paths")
+def test_02_namedRulesRelativePath(_=ensureCleanContext):
+    """Named rules can accept relative paths"""
+
+    os.chdir("/tmp")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
+
+    # Relative paths as string.
+    r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
+    assert r_1.deps == [pathlib.Path("/tmp/b")]
+    assert r_1.targets == [pathlib.Path("/tmp/a")]
+
+    # Pathlib relative paths as string.
+    r_2 = Rule(targets=pathlib.Path("a"), deps=pathlib.Path("b"), builder=fooBuilder)
+    assert r_2.deps == [pathlib.Path("/tmp/b")]
+    assert r_2.targets == [pathlib.Path("/tmp/a")]
+
+    # Virtual relative paths as string are NOT expanded.
+    r_3 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
+    assert r_3.deps == [VirtualDep("b")]
+    assert r_3.targets == [VirtualTarget("a")]
+
+    # Check VirtualTargets
+    with raises(TypeCheckError):
+        Rule(targets="bar", deps=VirtualTarget("foo"), builder=fooBuilder)
+
+    # Check VirtualDeps
+    with raises(TypeCheckError):
+        Rule(targets=VirtualDep("bar"), deps="foo", builder=fooBuilder)
+
+
+@test("Named rules can accept list of absolute paths")
+def test_03_namedRulesListAbsolutePath(_=ensureCleanContext):
+    """Named rules can accept list of absolute paths"""
+
+    os.chdir("/etc")  # Using a different directory than paths in rules.
+    fooBuilder = Builder(action="Magically creating $@ from $^")
+
+    # List of absolute paths as strings.
+    r_1 = Rule(targets=["/tmp/a1", "/tmp/a2"], deps=["/tmp/b1", "/tmp/b2"], builder=fooBuilder)
+    assert r_1.deps == [pathlib.Path("/tmp/b1"), pathlib.Path("/tmp/b2")]
+    assert r_1.targets == [pathlib.Path("/tmp/a1"), pathlib.Path("/tmp/a2")]
+
+    # List of absolute paths as pathlib paths.
+    r_2 = Rule(
+        targets=[pathlib.Path("/tmp/a1"),
+                 pathlib.Path("/tmp/a2")],
+        deps=[pathlib.Path("/tmp/b1"),
+              pathlib.Path("/tmp/b2")],
+        builder=fooBuilder
+    )
+    assert r_2.deps == [pathlib.Path("/tmp/b1"), pathlib.Path("/tmp/b2")]
+    assert r_2.targets == [pathlib.Path("/tmp/a1"), pathlib.Path("/tmp/a2")]
+
+    # List of virtual absolute paths.
+    r_3 = Rule(
+        targets=[VirtualTarget("/tmp/a1"),
+                 VirtualTarget("/tmp/a2")],
+        deps=[VirtualDep("/tmp/b1"),
+              VirtualDep("/tmp/b2")],
+        builder=fooBuilder
+    )
+    assert r_3.deps == [VirtualDep("/tmp/b1"), VirtualDep("/tmp/b2")]
+    assert r_3.targets == [VirtualTarget("/tmp/a1"), VirtualTarget("/tmp/a2")]
+
+
+@test("Named rules can accept list of relative paths")
+def test_04_namedRulesListRelativePath(_=ensureCleanContext):
+    """Named rules can accept list of relative paths"""
+
+    os.chdir("/tmp")
+    fooBuilder = Builder(action="Magically creating $@ from $^")
+
+    # List of absolute paths as strings.
+    r_1 = Rule(targets=["a1", "a2"], deps=["b1", "b2"], builder=fooBuilder)
+    assert r_1.deps == [pathlib.Path("/tmp/b1"), pathlib.Path("/tmp/b2")]
+    assert r_1.targets == [pathlib.Path("/tmp/a1"), pathlib.Path("/tmp/a2")]
+
+    # List of absolute paths as pathlib paths.
+    r_2 = Rule(
+        targets=[pathlib.Path("a1"),
+                 pathlib.Path("a2")],
+        deps=[pathlib.Path("b1"),
+              pathlib.Path("b2")],
+        builder=fooBuilder
+    )
+    assert r_2.deps == [pathlib.Path("/tmp/b1"), pathlib.Path("/tmp/b2")]
+    assert r_2.targets == [pathlib.Path("/tmp/a1"), pathlib.Path("/tmp/a2")]
+
+    # Virtual relative paths as string are NOT expanded.
+    r_3 = Rule(
+        targets=[VirtualTarget("a1"),
+                 VirtualTarget("a2")],
+        deps=[VirtualDep("b1"),
+              VirtualDep("b2")],
+        builder=fooBuilder
+    )
+    assert r_3.deps == [VirtualDep("b1"), VirtualDep("b2")]
+    assert r_3.targets == [VirtualTarget("a1"), VirtualTarget("a2")]
+
+    # Check VirtualTargets
+    with raises(TypeCheckError):
+        Rule(targets="bar", deps=[VirtualTarget("foo"), VirtualTarget("foo2")], builder=fooBuilder)
+
+    # Check VirtualDeps
+    with raises(TypeCheckError):
+        Rule(targets=[VirtualDep("bar"), VirtualDep("bar2")], deps="foo", builder=fooBuilder)
 
 
 @test("Rules can be patterns")
-def test_02_patternRules(_=ensureCleanContext):
+def test_05_patternRules(_=ensureCleanContext):
     """Rules can be patterns"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
-    rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    assert rule.deps == ["%.bar"]
-    assert rule.targets == ["%.foo"]
 
+    # Pattern rule with RHS fixed part.
+    rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
+    assert rule.deps == [GlobPattern("*.bar")]
+    assert rule.targets == [GlobPattern("*.foo")]
 
-@test("Named rule deps can be a string or a list of string")
-def test_03_deps(_=ensureCleanContext):
-    """Named rule deps can be a string or a list of string"""
-
-    fooBuilder = Builder(action="Magically creating $@ from $^")
-    os.chdir("/tmp")
-
-    # Check absolute paths.
-    rule = Rule(targets="/foo/bar", deps="/foo/baz", builder=fooBuilder)
-    assert rule.deps == ["/foo/baz"]
-    assert rule.targets == ["/foo/bar"]
-
-    # Check path expansion.
-    rule = Rule(targets="bar", deps="foo", builder=fooBuilder)
-    assert rule.deps == ["/tmp/foo"]
-    assert rule.targets == ["/tmp/bar"]
-
-    # Check VirtualDeps
-    rule = Rule(targets="bar", deps=VirtualDep("foo"), builder=fooBuilder)
-    assert rule.deps == [VirtualDep("foo")]
-    assert rule.targets == ["/tmp/bar"]
-
-    # Check VirtualTargets
-    with raises(TypeError):
-        rule = Rule(targets="bar", deps=VirtualTarget("foo"), builder=fooBuilder)
-
-
-@test("Named rule targets can be a string or a list of string")
-def test_04_targets(_=ensureCleanContext):
-    """Named rule targets can be a string or a list of string"""
-
-    fooBuilder = Builder(action="Magically creating $@ from $^")
-    os.chdir("/tmp")
-
-    # Check absolute paths.
-    rule = Rule(targets="/foo/bar", deps="/foo/baz", builder=fooBuilder)
-    assert rule.deps == ["/foo/baz"]
-    assert rule.targets == ["/foo/bar"]
-
-    # Check path expansion.
-    rule = Rule(targets="bar", deps="foo", builder=fooBuilder)
-    assert rule.deps == ["/tmp/foo"]
-    assert rule.targets == ["/tmp/bar"]
-
-    # Check VirtualTargets
-    rule = Rule(targets=VirtualTarget("bar"), deps="foo", builder=fooBuilder)
-    assert rule.deps == ["/tmp/foo"]
-    assert rule.targets == [VirtualTarget("bar")]
-
-    # Check VirtualDeps
-    with raises(TypeError):
-        rule = Rule(targets=VirtualDep("bar"), deps="foo", builder=fooBuilder)
+    # Pattern rule with LHS fixed part.
+    # rule = PatternRule(target="tmp_*", deps="test_*", builder=fooBuilder)
+    # assert rule.deps == ["*.bar"]
+    # assert rule.targets == ["*.foo"]
 
 
 @test("Pattern rules can expand to named targets")
-def test_05_patternRulesMatchExpand(_=ensureCleanContext):
+def test_06_patternRulesMatchExpand(_=ensureCleanContext):
     """Pattern rules can expand to named targets"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
 
     # Simple pattern rule.
-    rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
-    assert rule.match("a.foo") == ["a.bar"]
+    rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
+    assert rule.match("a.foo") == [pathlib.Path("a.bar")]
     assert rule.match("a.bar") == []
     assert rule.match("a.baz") == []
 
     # Multiple deps pattern rule.
-    rule = PatternRule(target="%.foo", deps=["%.bar", "%.baz"], builder=fooBuilder)
-    assert rule.match("a.foo") == ["a.bar", "a.baz"]
+    rule = PatternRule(target="*.foo", deps=["*.bar", "*.baz"], builder=fooBuilder)
+    assert rule.match("a.foo") == [pathlib.Path("a.bar"), pathlib.Path("a.baz")]
     assert rule.match("a.bar") == []
     assert rule.match("a.baz") == []
 
 
 @test("Pattern rules can exlude targets")
-def test_06_patternRulesExcludeTargets(_=ensureCleanContext):
+def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
     """Pattern rules can exlude targets"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
 
     # Simple pattern rule.
-    rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder, exclude=["a.foo"])
+    rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder, exclude=["a.foo"])
     assert rule.match("a.foo") == []
     assert rule.match("a.bar") == []
     assert rule.match("a.baz") == []
-    assert rule.match("b.foo") == ["b.bar"]
+    assert rule.match("b.foo") == [pathlib.Path("b.bar")]
     assert rule.match("b.bar") == []
     assert rule.match("b.baz") == []
 
     # Multiple deps pattern rule.
-    rule = PatternRule(target="%.foo", deps=["%.bar", "%.baz"], builder=fooBuilder, exclude=["a.foo"])
+    rule = PatternRule(target="*.foo", deps=["*.bar", "*.baz"], builder=fooBuilder, exclude=["a.foo"])
     assert rule.match("a.foo") == []
     assert rule.match("a.bar") == []
     assert rule.match("a.baz") == []
-    assert rule.match("b.foo") == ["b.bar", "b.baz"]
+    assert rule.match("b.foo") == [pathlib.Path("b.bar"), pathlib.Path("b.baz")]
     assert rule.match("b.bar") == []
     assert rule.match("b.baz") == []
+
+
+#     # Paths with ../ (all)

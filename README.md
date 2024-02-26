@@ -87,7 +87,7 @@ Rule(targets="output.txt", deps="input.txt", builder=fooBuilder)
 
 # Define a pattern rule to create `.bar` files from `.foo` files using builder
 # `fooBuilder`.
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
 
 # Declare targets to be built.
 AddTarget("output.txt")

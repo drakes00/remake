@@ -127,7 +127,7 @@ class PatternRule:
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $^")
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
 AddTarget("a.bar")
 ```
 
@@ -140,10 +140,10 @@ this example, the builder action is applied to create `a.bar` from `a.foo`.
 fooBuilder = Builder(action="Magically creating $@ from $^")
 
 # Simple pattern rule.
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder)
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder)
 
 # Multiple deps pattern rule.
-PatternRule(target="%.baz", deps=["%.foo", "%.bar"], builder=fooBuilder)
+PatternRule(target="*.baz", deps=["*.foo", "*.bar"], builder=fooBuilder)
 ```
 
 Pattern rule dependencies can be specified as either a string or a list of
@@ -156,10 +156,10 @@ strings. Here, the builder action is applied to create `a.baz` from `a.foo` and
 fooBuilder = Builder(action="Magically creating $@ from $^")
 
 # Simple pattern rule with exclude.
-PatternRule(target="%.bar", deps="%.foo", builder=fooBuilder, exclude=["a.bar"])
+PatternRule(target="*.bar", deps="*.foo", builder=fooBuilder, exclude=["a.bar"])
 
 # Multiple deps pattern rule with exclude.
-PatternRule(target="%.baz", deps=["%.foo", "%.bar"], builder=fooBuilder, exclude=["a.baz"])
+PatternRule(target="*.baz", deps=["*.foo", "*.bar"], builder=fooBuilder, exclude=["a.baz"])
 ```
 
 Pattern rules can exclude specific targets from matching. Here, `a.bar` and `a.baz` are respectively
@@ -169,7 +169,7 @@ excluded from the pattern match, so ReMake will not look for their dependencies.
 
 ```python
 fooBuilder = Builder(action="Magically creating $@ from $<")
-rule = PatternRule(target="%.foo", deps="%.bar", builder=fooBuilder)
+rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
 AddTarget(rule.allTargets)
 ```
 
