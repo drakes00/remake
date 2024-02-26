@@ -851,7 +851,7 @@ def main():
         "-f",
         "--config-file",
         type=str,
-        default=None,
+        default="ReMakeFile",
     )
     argparser.add_argument(
         "targets",
