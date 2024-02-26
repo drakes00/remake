@@ -4,6 +4,9 @@
 
 # ReMake
 
+![](https://github.com/drakes00/remake/actions/workflows/lint.yaml/badge.svg)
+![](https://github.com/drakes00/remake/actions/workflows/ward.yaml/badge.svg)
+
 ReMake is a Python-based make-like tool that simplifies the process of defining
 and managing build rules for your projects. Unlike traditional makefiles,
 ReMake leverages Python code directly within a ReMakeFile to express
