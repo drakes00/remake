@@ -15,10 +15,7 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: "3.11"
-    - name: Run Pylint with reviewdog
-      uses: dciborow/action-pylint@0.1.1
+    - name: Python Pylin GitHub Action
+      uses: fylein/python-pylint-github-action@v1
       with:
-        glob_pattern: "remake tests"
-        pylint_rc: ".github/workflows/pylintrc"
-        pylint_args: "--fail-under=9.5"
-        reporter: "local"
+        args: pip3 install -r requirements.txt && pylint --rcfile=.github/workflows/pylintrc --fail-under=9.5 remake tests
