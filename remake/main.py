@@ -3,19 +3,17 @@
 """Main funtions of ReMake."""
 
 import argparse
-from collections.abc import Callable
-import glob
 import os
 import pathlib
 import re
 import subprocess
 import sys
 
-from typeguard import typechecked
-
 from collections import deque
+from collections.abc import Callable
 from rich.progress import Progress
 from rich.console import Console
+from typeguard import typechecked
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, resetOldContexts, Context
 
@@ -152,10 +150,12 @@ class GlobPattern():
 
     @property
     def pattern(self) -> str:
+        """Returns the pattern associated."""
         return self._pattern
 
     @property
     def suffix(self):
+        """Returns the suffix of the pattern associated."""
         # '*' is expected to be first character by PatternRule.__init__
         return self._pattern[1:]
 
@@ -265,11 +265,14 @@ class Rule():
         self,
         targets: list[VirtualTarget | str | pathlib.Path] | VirtualTarget | str | pathlib.Path,
         builder: Builder,
-        deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path = [],
+        deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path | None = None,
         ephemeral: bool = False,
         **kwargs
     ):
-        self._deps = self._parseDeps(deps)
+        if deps is None:
+            self._deps = []
+        else:
+            self._deps = self._parseDeps(deps)
         self._targets = self._parseTargets(targets)
 
         self._builder = builder
@@ -375,9 +378,10 @@ class Rule():
     def action(self) -> list[str] | tuple[str, list[str], list[str]]:
         """Return rule's action."""
         action = self._builder.parseAction(self._deps, self._targets)
-        if isinstance(action, list):
+
+        def _handleListTypes(elems):
             ret = []
-            for elem in action:
+            for elem in elems:
                 if isinstance(elem, pathlib.Path):
                     ret += [str(elem)]
                 elif isinstance(elem, GlobPattern):
@@ -385,25 +389,12 @@ class Rule():
                 else:
                     ret += [str(elem)]
             return ret
+
+        if isinstance(action, list):
+            return _handleListTypes(action)
         else:
-            deps = []
-            for dep in self._deps:
-                if isinstance(dep, pathlib.Path):
-                    deps += [str(dep)]
-                elif isinstance(dep, GlobPattern):
-                    deps += [dep.pattern]
-                else:
-                    deps += [str(dep)]
-
-            targets = []
-            for target in self._targets:
-                if isinstance(target, pathlib.Path):
-                    targets += [str(target)]
-                elif isinstance(target, GlobPattern):
-                    targets += [target.pattern]
-                else:
-                    targets += [str(target)]
-
+            deps = _handleListTypes(self._deps)
+            targets = _handleListTypes(self._targets)
             return (str(self._builder.action), deps, targets)
 
     @property
@@ -413,7 +404,9 @@ class Rule():
         if isinstance(action, list):
             return " ".join(action)
         elif isinstance(action, tuple):
-            return f"{action[0]}(\[{', '.join(action[1])}], \[{', '.join(action[2])}])"
+            return rf"{action[0]}(\[{', '.join(action[1])}], \[{', '.join(action[2])}])"
+        else:
+            raise NotImplementedError
 
     @property
     def targets(self) -> list[VirtualTarget | pathlib.Path | GlobPattern]:
@@ -431,7 +424,7 @@ class PatternRule(Rule):
     """Pattern rule class (e.g., *.pdf:*.tex)."""
     _exclude = []
 
-    def __init__(self, target: str, deps: list[str] | str, builder: Builder, exclude: list[str] = []):
+    def __init__(self, target: str, deps: list[str] | str, builder: Builder, exclude: list[str] | None = None):
         # FIXME Does not seem to handle PatternRules such as "a*.foo"
         assert target.startswith("*")
         if isinstance(deps, list):
@@ -453,6 +446,7 @@ class PatternRule(Rule):
 
     @property
     def targetPattern(self) -> str:
+        """Returns pattern associated to the target."""
         return self._targets[0].pattern
 
     def match(self, other: pathlib.Path | str) -> list[pathlib.Path]:
