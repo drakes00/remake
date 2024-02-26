@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "remake"
-version = "v1.1.0+0.2d075ba"
+version = "v1.1.0+0.9cbe564"
 description = ""
 authors = ["drakes00 <drakes00@gmail.com>"]
 readme = "README.md"
