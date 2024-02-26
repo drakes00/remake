@@ -759,8 +759,8 @@ def optimizeDeps(
 @typechecked()
 def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
                                               Rule]],
-              configFile: str = "ReMakeFile") -> list[tuple[pathlib.Path,
-                                                            Rule]]:
+              configFile: str = "ReMakeFile") -> list[pathlib.Path | tuple[pathlib.Path,
+                                                                           Rule]]:
     """Builds files marked as targets from their dependencies."""
     def _cleanDep(target):
         if os.path.isfile(target):
@@ -775,7 +775,7 @@ def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
-            if isinstance(dep, str):
+            if isinstance(dep, pathlib.Path):
                 # Ground dependency (tree leaf).
                 # Let's not delete a ground dependency..
                 progress.advance(task)
@@ -808,7 +808,7 @@ def buildDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
-            if isinstance(dep, str):
+            if isinstance(dep, pathlib.Path):
                 # Ground dependency (tree leaf).
                 if DRY_RUN is True:
                     progress.console.print(
