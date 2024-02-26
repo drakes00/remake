@@ -386,7 +386,7 @@ class Rule():
                     ret += [elem]
             return ret
 
-        return f"{action}({self._deps}, {self._targets})"
+        return [f"{action}({self._deps}, {self._targets})"]
 
     @property
     def actionName(self) -> str:
