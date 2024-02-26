@@ -372,7 +372,7 @@ class Rule():
         return True
 
     @property
-    def action(self) -> list[str]:
+    def action(self) -> list[str] | tuple[str, list[str], list[str]]:
         """Return rule's action."""
         action = self._builder.parseAction(self._deps, self._targets)
         if isinstance(action, list):
@@ -383,10 +383,28 @@ class Rule():
                 elif isinstance(elem, GlobPattern):
                     ret += [elem.pattern]
                 else:
-                    ret += [elem]
+                    ret += [str(elem)]
             return ret
+        else:
+            deps = []
+            for dep in self._deps:
+                if isinstance(dep, pathlib.Path):
+                    deps += [str(dep)]
+                elif isinstance(dep, GlobPattern):
+                    deps += [dep.pattern]
+                else:
+                    deps += [str(dep)]
 
-        return [f"{action}({self._deps}, {self._targets})"]
+            targets = []
+            for target in self._targets:
+                if isinstance(target, pathlib.Path):
+                    targets += [str(target)]
+                elif isinstance(target, GlobPattern):
+                    targets += [target.pattern]
+                else:
+                    targets += [str(target)]
+
+            return (str(self._builder.action), deps, targets)
 
     @property
     def actionName(self) -> str:
@@ -394,11 +412,8 @@ class Rule():
         action = self.action
         if isinstance(action, list):
             return " ".join(action)
-
-        if action.__doc__ is not None:
-            return action.__doc__
-
-        return f"{action}({self._deps}, {self._targets})"
+        elif isinstance(action, tuple):
+            return f"{action[0]}(\[{', '.join(action[1])}], \[{', '.join(action[2])}])"
 
     @property
     def targets(self) -> list[VirtualTarget | pathlib.Path | GlobPattern]:
