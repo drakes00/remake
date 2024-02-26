@@ -15,8 +15,7 @@ jobs:
       uses: actions/setup-python@v3
       with:
         python-version: "3.11"
-    - run: pip install poetry && poetry install
     - name: Python Pylin GitHub Action
       uses: fylein/python-pylint-github-action@v1
       with:
-        args: poetry run pylint --rcfile=.github/workflows/pylintrc --fail-under=9.5 remake tests
+        args: pip install poetry && poetry install && poetry run pylint --rcfile=.github/workflows/pylintrc --fail-under=9.5 remake tests
