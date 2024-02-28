@@ -49,6 +49,10 @@ git clone https://github.com/drakes00/remake.git
 cd remake
 pip install .
 ```
+Or within a `poetry` environment, run the following command:
+```bash
+poetry add git+https://github.com/drakes00/remake.git
+```
 
 ## Usage
 
