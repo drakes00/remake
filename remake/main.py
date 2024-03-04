@@ -339,7 +339,7 @@ class Rule():
     def __hash__(self):
         return hash(tuple([tuple(self._targets), *self._deps, self._builder]))
 
-    def apply(self, console: Console | Progress | None) -> bool:
+    def apply(self, console: Console | Progress | None = None) -> bool:
         """Applies rule's action.
         Returns True if action was applied, False else.
         """
@@ -351,7 +351,7 @@ class Rule():
         # If we are not in dry run mode, ensure dependencies were made before the rule is applied.
         if not DRY_RUN:
             for dep in self._deps:
-                if not isinstance(dep, VirtualDep) and not os.path.isfile(dep):
+                if not isinstance(dep, VirtualDep) and not (os.path.isfile(dep) or os.path.isdir(dep)):
                     raise FileNotFoundError(f"Dependency {dep} does not exists to make {self._targets}")
 
         # Apply the rule.
@@ -369,7 +369,7 @@ class Rule():
         # If we are not in dry run mode, ensure targets were made after the rule is applied.
         if not DRY_RUN:
             for target in self._targets:
-                if not isinstance(target, VirtualTarget) and not os.path.isfile(target):
+                if not isinstance(target, VirtualTarget) and not (os.path.isfile(target) or os.path.isdir(target)):
                     raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
 
         return True

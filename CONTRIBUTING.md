@@ -13,3 +13,4 @@
 - Show Dependency tree in terminal
 - Rules handling symbolic links
 - Traditional Makefile support through direct call to `make` command
+- Basic builders for file operation (cp, mv, rm, tar, etc)

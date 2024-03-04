@@ -280,11 +280,11 @@ def test_04_funMakeTarget(_=ensureCleanContext):
     # Ensure rule not making the target file will throw.
     rule = Rule(targets=f"{TMP_FILE}", deps=[], builder=fooBuilder)
     with raises(FileNotFoundError):
-        rule.apply(None)
+        rule.apply()
     getCurrentContext().clearRules()
 
     rule = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
-    rule.apply(None)
+    rule.apply()
     assert os.path.isfile(TMP_FILE)
     os.remove(TMP_FILE)
 
@@ -880,10 +880,10 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
 
     # Direct call to rule.apply
     r_1 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert r_1.apply(None) is False
+    assert r_1.apply() is False
     time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
-    assert r_1.apply(None) is True
+    assert r_1.apply() is True
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -892,7 +892,7 @@ def test_18_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     r_2 = Rule(targets="a", deps="b", builder=touchBuilder)
     AddTarget("a")
     dep1 = generateDependencyList()
-    r_2.apply(None)
+    r_2.apply()
     dep2 = generateDependencyList()
     assert dep1 == dep2
     time.sleep(0.01)
@@ -950,14 +950,14 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     r_1_2 = Rule(targets="a", deps="b", builder=touchBuilder)
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
-    assert r_1_1.apply(None) is False
-    assert r_1_2.apply(None) is False
+    assert r_1_1.apply() is False
+    assert r_1_2.apply() is False
     time.sleep(0.01)
     pathlib.Path("/tmp/c").touch()
     # Here: c more recent than a more recent than b.
     # Rule should not check dependencies of dependencies.
     # This is the job of the dependency graph!
-    assert r_1_2.apply(None) is False
+    assert r_1_2.apply() is False
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -975,7 +975,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     dep1 = generateDependencyList()
     # Here: a more recent than b more recent than c.
     # Nothing to do, rules are expected to return False.
-    assert r_2_1.apply(None) is False
+    assert r_2_1.apply() is False
     dep2 = generateDependencyList()
     assert dep1 == dep2
     time.sleep(0.01)

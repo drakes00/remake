@@ -2,9 +2,51 @@
 # -*- coding: utf-8 -*-
 """Default builders for ReMake."""
 
+import shutil
 import subprocess
 
 from remake.main import Builder
+
+# ==================================================
+# =              File Operations                   =
+# ==================================================
+
+
+# Expects either 2 arguments (source, destination),
+# or multiple arguments where all be last are source
+# and last is the destination directory.
+def _cp(deps, targets, _):
+    # print(deps, targets)
+    assert len(targets) == 1
+    for dep in deps:
+        if dep.is_file():
+            shutil.copy(dep, targets[0], follow_symlinks=False)
+        elif dep.is_dir():
+            shutil.copytree(dep, targets[0] / dep.name)
+
+
+cp = Builder(action=_cp)
+
+
+def _mv(deps, targets, _):
+    raise NotImplementedError
+
+
+mv = Builder(action=_mv)
+
+
+def _rm(deps, targets, _):
+    raise NotImplementedError
+
+
+rm = Builder(action=_rm)
+
+
+def _tar(deps, targets, _):
+    raise NotImplementedError
+
+
+tar = Builder(action=_tar)
 
 # ==================================================
 # =              LaTeX Builders                    =
