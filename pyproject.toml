@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "remake"
-version = "v1.1.0+0.9cbe564"
+version = "v1.1.0+6450831"
 description = ""
 authors = ["drakes00 <drakes00@gmail.com>"]
 readme = "README.md"
@@ -20,7 +20,7 @@ dunamai = "^1.19.0"
 
 [tool.poetry-dynamic-versioning]
 enable = true
-format = "v{base}+{distance}.{commit}"
+format = "v{base}+{commit}"
 
 [build-system]
 requires = ["poetry-core>=1.0.0", "poetry-dynamic-versioning>=1.0.0,<2.0.0"]
