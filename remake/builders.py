@@ -12,24 +12,65 @@ from remake.main import Builder
 # ==================================================
 
 
-# Expects either 2 arguments (source, destination),
-# or multiple arguments where all be last are source
-# and last is the destination directory.
+# Expects either :
+#   - 2 arguments (source, destination):
+#       - If source is a file and dest does not exists -> Ok, rename as dest
+#       - If source is a file and dest exists and is a file -> Ok, override
+#       - If source is a file and dest exists and is a dir -> Ok, copy source into dest
+#       - If source is a dir and dest does not exists, Ok, copy in dest's parent and rename as dest
+#       - If source is a dir and dest exists and is a file, KO
+#       - If source is a dir and dest exists and is a dir, Ok, copy source into dest
+#   - Multiple arguments where all but last are source:
+#       - last is the destination directory, must exists and everything is copied inside
+#   - In all cases, intermediate folders must exist.
 def _cp(deps, targets, _):
-    # print(deps, targets)
+    print(deps, targets)
     assert len(targets) == 1
-    for dep in deps:
+    target = targets[0]
+
+    if len(deps) == 1 and deps[0].is_dir() and target.exists() and not target.is_dir():
+        raise ValueError
+    if len(deps) > 1 and not target.is_dir():
+        raise FileNotFoundError
+
+    if len(deps) > 1:
+        for dep in deps:
+            if dep.is_file():
+                shutil.copy(dep, target)
+            elif dep.is_dir():
+                shutil.copytree(dep, target / dep.name)
+    else:
+        dep = deps[0]
         if dep.is_file():
-            shutil.copy(dep, targets[0], follow_symlinks=False)
-        elif dep.is_dir():
-            shutil.copytree(dep, targets[0] / dep.name)
+            shutil.copy(dep, target)
+        elif dep.is_dir() and target.is_dir():
+            shutil.copytree(dep, target / dep.name)
+        elif dep.is_dir() and not target.exists():
+            shutil.copytree(dep, target)
 
 
 cp = Builder(action=_cp)
 
 
+# Expects either :
+#   - 2 arguments (source, destination):
+#       - If source is a file and dest does not exists -> Ok, rename as dest
+#       - If source is a file and dest exists and is a file -> Ok, override
+#       - If source is a file and dest exists and is a dir -> Ok, move source into dest
+#       - If source is a dir and dest does not exists, Ok, move in dest's parent and rename as dest
+#       - If source is a dir and dest exists and is a file, KO
+#       - If source is a dir and dest exists and is a dir, Ok, move source into dest
+#   - Multiple arguments where all but last are source:
+#       - last is the destination directory, must exists and everything is moved inside
+#   - In all cases, intermediate folders must exist.
 def _mv(deps, targets, _):
-    raise NotImplementedError
+    # TODO Replace by copy then remove ?
+    assert len(targets) == 1
+    if len(deps) > 1 and not targets[0].is_dir():
+        raise FileNotFoundError
+
+    for dep in deps:
+        shutil.move(dep, targets[0])
 
 
 mv = Builder(action=_mv)
