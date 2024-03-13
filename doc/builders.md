@@ -10,13 +10,14 @@ generic. Their inputs and outputs are precised by rules.
 
 ```python
 class Builder:
-    def __init__(self, action, ephemeral=False):
+    def __init__(self, action, ephemeral=False, shouldRebuild=None):
         """
         Initialize the Builder.
 
         Parameters:
         - `action`: The action to be performed when building the targets.
         - `ephemeral` (optional): If set to `True`, the builder will not be registered, making it suitable for one-time use.
+        - `shouldRebuild` (optional): Can be set to a callable(target, deps) -> bool, customizing how dependencies and targets are linked.
         """
         pass
 ```
@@ -74,6 +75,7 @@ the dependencies to the targets.
 def do_some_work(deps, targets, console, myArg=None):
     # Any python code producing `targets` from `deps`.
     # Keyword `myArg` may be used depending on the rule.
+    pass
 
 myBuilder = Builder(action=do_some_work)
 Rule(targets="output.txt", deps="input.txt", builder=myBuilder)

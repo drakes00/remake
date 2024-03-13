@@ -6,6 +6,7 @@ import argparse
 import os
 import pathlib
 import re
+import shutil
 import subprocess
 import sys
 
@@ -167,7 +168,7 @@ def shouldRebuild(target: VirtualTarget | pathlib.Path, deps: list[VirtualDep | 
     if isinstance(target, VirtualTarget):
         # Target is virtual, always rebuild.
         return True
-    if not os.path.isfile(target):
+    if not os.path.exists(target):
         # If target does not already exists.
         return True
     else:
@@ -188,6 +189,7 @@ def shouldRebuild(target: VirtualTarget | pathlib.Path, deps: list[VirtualDep | 
 class Builder():
     """Generic builder class."""
     _action = None
+    _shouldRebuild = None
 
     def __init__(
         self,
@@ -195,12 +197,16 @@ class Builder():
                                             list[str],
                                             Console],
                                            None],
-        ephemeral: bool = False
+        ephemeral: bool = False,
+        shouldRebuild: Callable[[VirtualTarget | pathlib.Path,
+                                 list[VirtualDep | pathlib.Path]],
+                                bool] | None = None,
     ):
         if isinstance(action, str):
             self._action = action.split(" ")
         else:
             self._action = action
+        self._shouldRebuild = shouldRebuild
         if not ephemeral:
             self._register()
 
@@ -249,8 +255,13 @@ class Builder():
 
     @property
     def type(self):
-        """Returns build's action's type (list vs. callable)."""
+        """Returns builder's action's type (list vs. callable)."""
         return type(self._action)
+
+    @property
+    def shouldRebuild(self):
+        """Returns buider's custom shouldRebuild function."""
+        return self._shouldRebuild
 
 
 @typechecked()
@@ -345,8 +356,14 @@ class Rule():
         """
 
         # Check if rule is already applied (all targets are already made).
-        if all(not shouldRebuild(target, self._deps) for target in self._targets):
-            return False
+        if self._builder.shouldRebuild:
+            # Either with custom shouldRebuild method.
+            if all(not self._builder.shouldRebuild(target, self._deps) for target in self._targets):
+                return False
+        else:
+            # Or using default one.
+            if all(not shouldRebuild(target, self._deps) for target in self._targets):
+                return False
 
         # If we are not in dry run mode, ensure dependencies were made before the rule is applied.
         if not DRY_RUN:
@@ -620,7 +637,7 @@ def findBuildPath(
             }
 
     # At this point, no rule was found for the target.
-    if os.path.isfile(str(target)):
+    if os.path.exists(str(target)):
         # And target already exists.
         if CLEAN:
             # We are attempting to clean an existing target no linked to any rule.
@@ -757,11 +774,14 @@ def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
                                                                            Rule]]:
     """Builds files marked as targets from their dependencies."""
     def _cleanDep(target):
-        if os.path.isfile(target):
+        if os.path.exists(target):
             progress.console.print(
                 f"[{job+1}/{len(deps)}] [[bold plum1]CLEAN[/bold plum1]] Cleaning dependency {target}."
             )
-            os.remove(target)
+            if target.is_file():
+                os.remove(target)
+            elif target.isdir():
+                shutil.rmtree(target)
 
     with Progress() as progress:
         progress.console.print(
@@ -808,7 +828,7 @@ def buildDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
                     progress.console.print(
                         f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
                     )
-                elif os.path.isfile(dep):
+                elif os.path.exists(dep):
                     progress.console.print(
                         f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
                     )

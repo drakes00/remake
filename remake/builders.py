@@ -12,6 +12,21 @@ from remake.main import Builder
 # ==================================================
 
 
+def _FILE_OPS_shouldRebuild(target, deps):
+    from remake.main import shouldRebuild
+
+    if len(deps) > 1:
+        ret = False
+        for dep in deps:
+            ret = ret or shouldRebuild(target / dep.name, [dep])
+        return ret
+    else:
+        dep = deps[0]
+        if target.is_dir():
+            target = target / dep.name
+        return shouldRebuild(target, [dep])
+
+
 # Expects either :
 #   - 2 arguments (source, destination):
 #       - If source is a file and dest does not exists -> Ok, rename as dest
@@ -49,7 +64,7 @@ def _cp(deps, targets, _):
             shutil.copytree(dep, target)
 
 
-cp = Builder(action=_cp)
+cp = Builder(action=_cp, shouldRebuild=_FILE_OPS_shouldRebuild)
 
 
 # Expects either :
@@ -73,7 +88,7 @@ def _mv(deps, targets, _):
         shutil.move(dep, targets[0])
 
 
-mv = Builder(action=_mv)
+mv = Builder(action=_mv, shouldRebuild=_FILE_OPS_shouldRebuild)
 
 
 def _rm(deps, targets, _):
