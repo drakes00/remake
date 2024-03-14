@@ -53,9 +53,13 @@ def setupTestCopyMove():
     with open(test_file_2, "w") as f:
         f.write("Another test file.")
     with open(test_file_3, "w") as f:
-        f.write("Another test file.")
-    os.symlink(test_file_1, link_to_file_1)
-    os.symlink(test_file_3, link_to_file_3)
+        f.write("Another other test file.")
+
+    try:
+        os.symlink(test_file_1, link_to_file_1)
+        os.symlink(test_file_3, link_to_file_3)
+    except FileExistsError:
+        pass
 
     yield
 
@@ -284,7 +288,9 @@ def test_07_copyLinkOperations(_=setupTestCopyMove):
     link_to_file_1 = Path("link_to_file_1.lnk")
     link_to_file_3 = Path("link_to_file_3.lnk")
 
-    # IMPORTANT: Links are automatically resolved during rule process!
+    # Link will we followed during copy (copying the
+    # file pointed by the link and not the link itself).
+
     # Single link
     source = link_to_file_1
     destination = test_dir_1 / "copied_link.lnk"
@@ -301,7 +307,7 @@ def test_07_copyLinkOperations(_=setupTestCopyMove):
     destination_dir = test_dir_2
     _doCopy(sources, destination_dir)
     for source in sources:
-        destination = destination_dir / source.resolve().name
+        destination = destination_dir / source.name
         assert destination.exists() is True
         assert destination.is_file() is True
         os.remove(destination)

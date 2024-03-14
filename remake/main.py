@@ -342,7 +342,7 @@ class Rule():
 
     def _expandToAbsPath(self, filename: str | pathlib.Path) -> pathlib.Path:
         """Expands dep or target to absolute path."""
-        return pathlib.Path(filename).resolve()
+        return pathlib.Path(filename).absolute()
 
     def __eq__(self, other) -> bool:
         return (self._targets, self._deps, self._builder) == (other._targets, other._deps, other._builder)
