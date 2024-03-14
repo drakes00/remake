@@ -2,8 +2,10 @@
 # -*- coding: utf-8 -*-
 """Default builders for ReMake."""
 
+import os
 import shutil
 import subprocess
+import tarfile
 
 from remake.main import Builder
 
@@ -98,8 +100,12 @@ def _rm(deps, targets, _):
 rm = Builder(action=_rm)
 
 
-def _tar(deps, targets, _):
-    raise NotImplementedError
+def _tar(deps, targets, _, compression=""):
+    cwd = os.getcwd()
+    mode = f"w:{compression}" if compression in ("gz", "bz2", "xz") else "w"
+    with tarfile.open(targets[0], mode) as tar:
+        for dep in deps:
+            tar.add(dep.relative_to(cwd))
 
 
 tar = Builder(action=_tar)

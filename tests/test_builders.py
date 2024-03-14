@@ -4,6 +4,7 @@
 
 import os
 import shutil
+import tarfile
 import time
 from pathlib import Path
 
@@ -222,7 +223,6 @@ def test_06_copyDirectoryOperations(_=setupTestCopyMove):
     test_dir_1 = Path("test_dir_1")
     test_dir_2 = Path("test_dir_2")
     test_dir_3 = Path("test_dir_3")
-    test_dir_4 = Path("test_dir_4")
     test_file_3 = test_dir_1 / "test_file_3.txt"
 
     # Single directory
@@ -425,9 +425,248 @@ def test_09_moveDirectoryOperations(_=setupTestCopyMove):
 
 @test("Basic remove operations.")
 @xfail
-def test_07_removeFileOperations():
+def test_removeFileOperations():
     """Basic remove operations."""
     raise NotImplementedError
     # === Remove ===
     # Files (single, multiple, non-existant)
     # Directorie (single, multiple, non-existant, not empty)
+
+
+@test("Basic tar operations - single file")
+def test_10_tarSingleFile(_=setupTestCopyMove):
+    """Creates a tar archive from a single file."""
+    def _doTar(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_archive = Path("archive.tar")
+
+    # Create the source file
+    with open(test_file_1, "w") as f:
+        f.write("This is a test file.")
+
+    _doTar(test_file_1, test_archive)
+
+    # Make sure file does not exists except in archive
+    os.remove(test_file_1)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with tarfile.open(test_archive) as tarball:
+        tarball.extractall()
+    with open(test_file_1, "r") as f:
+        content = f.read()
+    assert content == "This is a test file."
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_archive)
+
+
+@test("Basic tar operations - single file with rename")
+@xfail
+def test_11_tarSingleFileRename(_=setupTestCopyMove):
+    """Creates a tar archive from a single file with a custom name in the archive."""
+    raise NotImplementedError
+    # def _doTar(src, dst):
+    #     getCurrentContext().clearRules()
+    #     Rule(deps=src, targets=dst, builder=tar).apply()
+    #     getCurrentContext().clearRules()
+
+    # test_file_1 = Path("test_file_1.txt")
+    # test_archive = Path("archive.tar")
+
+    # # Create the source file
+    # with open(test_file_1, "w") as f:
+    #     f.write("This is a test file.")
+
+    # # Will fail here, currently no way to pass no name inside rule structure.
+    # _doTar((test_file_1, "custom_name_in_tar.txt"), test_archive)
+
+    # # Verify the archive exists
+    # assert test_archive.exists() is True
+
+    # # Extract the archive and verify content
+    # with tarfile.open(test_archive) as tarball:
+    #     tarball.extractall()
+    # with open("custom_name.txt", "r") as f:
+    #     content = f.read()
+    # assert content == "This is a test file."
+
+    # # Clean up
+    # os.remove("custom_name.txt")
+    # os.remove(test_archive)
+
+
+@test("Basic tar operations - multiple files")
+def test_12_tarMultipleFiles(_=setupTestCopyMove):
+    """Creates a tar archive from multiple files."""
+    def _doTar(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_file_2 = Path("test_file_2.txt")
+    test_archive = Path("archive.tar")
+
+    # Create the source files
+    with open(test_file_1, "w") as f:
+        f.write("This is a test file 1.")
+    with open(test_file_2, "w") as f:
+        f.write("This is a test file 2.")
+
+    _doTar([test_file_1, test_file_2], test_archive)
+
+    # Make sure files does not exists except in archive
+    os.remove(test_file_1)
+    os.remove(test_file_2)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with tarfile.open(test_archive) as tarball:
+        tarball.extractall()
+    with open(test_file_1, "r") as f:
+        content = f.read()
+    assert content == "This is a test file 1."
+    with open(test_file_2, "r") as f:
+        content = f.read()
+    assert content == "This is a test file 2."
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_file_2)
+    os.remove(test_archive)
+
+
+@test("Basic tar operations - directory")
+def test_13_tarDirectory(_=setupTestCopyMove):
+    """Creates a tar archive from a directory."""
+    def _doTar(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar).apply()
+        getCurrentContext().clearRules()
+
+    test_dir_1 = Path("test_dir_1")
+    test_file_3 = test_dir_1 / "test_file_3.txt"
+    test_archive = Path("archive.tar")
+
+    _doTar(test_dir_1, test_archive)
+
+    # Make sure files does not exists except in archive
+    shutil.rmtree(test_dir_1)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with tarfile.open(test_archive) as tarball:
+        tarball.extractall()
+    with open(test_file_3, "r") as f:
+        content = f.read()
+    assert content == "Another other test file."
+
+    # Clean up
+    shutil.rmtree(test_dir_1)
+    os.remove(test_archive)
+
+
+@test("Basic tar operations - link")
+def test_14_tarLink(_=setupTestCopyMove):
+    """Creates a tar archive from a symbolic link."""
+    def _doTar(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_link = Path("link_to_file_1.lnk")
+    test_archive = Path("archive.tar")
+
+    _doTar(test_link, test_archive)
+
+    # Make sure files does not exists except in archive
+    os.remove(test_link)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content (link will be recreated as a file)
+    with tarfile.open(test_archive) as tarball:
+        tarball.extractall()
+    with open(test_link.resolve(), "r") as f:
+        contentLink = f.read()
+    with open(test_file_1, "r") as f:
+        contentFile = f.read()
+    assert contentLink == contentFile
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_link)
+    os.remove(test_archive)
+
+
+@test("Tar errors - non-existent source")
+def test_15_tarNonexistentSource(_=setupTestCopyMove):
+    """Attempts to create a tar archive from a non-existent source and raises an error."""
+    def _doTar(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar).apply()
+        getCurrentContext().clearRules()
+
+    test_archive = Path("archive.tar.gz")
+    source = Path("nonexistent_file.txt")
+
+    with raises(FileNotFoundError):
+        _doTar(source, test_archive)
+
+    # Clean up (archive won't be created)
+    assert not test_archive.exists()
+
+
+@test("Tar with compression options")
+def test_16_tarCompression(_=setupTestCopyMove):
+    """Creates a tar archive with different compression options."""
+    def _doTar(src, dst, compression):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=tar, compression=compression).apply()
+        getCurrentContext().clearRules()
+
+    test_dir_1 = Path("test_dir_1")
+    test_file_1 = test_dir_1 / "test_file_1.txt"
+    test_archive_gz = Path("archive.tar.gz")
+    test_archive_bz2 = Path("archive.tar.bz2")
+    test_archive_xz = Path("archive.tar.xz")
+
+    # Create the source directory and file
+    os.makedirs(test_dir_1, exist_ok=True)
+    with open(test_file_1, "w") as f:
+        f.write("This is a test file.")
+
+    # Create archives with different compression
+    _doTar(test_dir_1, test_archive_gz, compression="gz")
+    _doTar(test_dir_1, test_archive_bz2, compression="bz2")
+    _doTar(test_dir_1, test_archive_xz, compression="xz")
+
+    # Verify archives exist
+    assert test_archive_gz.exists() is True
+    assert test_archive_bz2.exists() is True
+    assert test_archive_xz.exists() is True
+
+    # Verify archive types
+    tarfile.open(test_archive_gz, "r:gz").close()
+    tarfile.open(test_archive_bz2, "r:bz2").close()
+    tarfile.open(test_archive_xz, "r:xz").close()
+
+    # Clean up
+    shutil.rmtree(test_dir_1)
+    os.remove(test_archive_gz)
+    os.remove(test_archive_bz2)
+    os.remove(test_archive_xz)
