@@ -41,7 +41,6 @@ def _FILE_OPS_shouldRebuild(target, deps):
 #       - last is the destination directory, must exists and everything is copied inside
 #   - In all cases, intermediate folders must exist.
 def _cp(deps, targets, _):
-    print(deps, targets)
     assert len(targets) == 1
     target = targets[0]
 
