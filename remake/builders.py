@@ -6,6 +6,7 @@ import os
 import shutil
 import subprocess
 import tarfile
+import zipfile
 
 from remake.main import Builder
 
@@ -98,6 +99,10 @@ def _rm(deps, targets, _):
 
 rm = Builder(action=_rm)
 
+# ==================================================
+# =                 Archives                       =
+# ==================================================
+
 
 def _tar(deps, targets, _, compression=""):
     cwd = os.getcwd()
@@ -108,6 +113,21 @@ def _tar(deps, targets, _, compression=""):
 
 
 tar = Builder(action=_tar)
+
+
+def _zip(deps, targets, _):
+    cwd = os.getcwd()
+    with zipfile.ZipFile(targets[0], "w") as zip:
+        for dep in deps:
+            if dep.is_dir():
+                files = list(dep.rglob("*"))
+                for file in files:
+                    zip.write(file.relative_to(cwd))
+            else:
+                zip.write(dep.relative_to(cwd))
+
+
+zip = Builder(action=_zip)
 
 # ==================================================
 # =              LaTeX Builders                    =

@@ -6,13 +6,14 @@ import os
 import shutil
 import tarfile
 import time
+import zipfile
 from pathlib import Path
 
 from ward import test, fixture, raises, xfail
 
 from remake import Builder, Rule, VirtualDep, VirtualTarget
 from remake import getCurrentContext
-from remake.builders import cp, mv, rm, tar
+from remake.builders import cp, mv, rm, tar, zip
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -676,3 +677,201 @@ def test_16_tarCompression(_=setupTestCopyMove):
     os.remove(test_archive_gz)
     os.remove(test_archive_bz2)
     os.remove(test_archive_xz)
+
+
+@test("Basic zip operations - single file")
+def test_17_zipSingleFile(_=setupTestCopyMove):
+    """Creates a zip archive from a single file."""
+    def _doZip(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=zip).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_archive = Path("archive.zip")
+
+    # Create the source file
+    with open(test_file_1, "w") as f:
+        f.write("This is a test file.")
+
+    _doZip(test_file_1, test_archive)
+
+    # Make sure file does not exists except in archive
+    os.remove(test_file_1)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with zipfile.ZipFile(test_archive) as zipball:
+        zipball.extractall()
+    with open(test_file_1, "r") as f:
+        content = f.read()
+    assert content == "This is a test file."
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_archive)
+
+
+@test("Basic zip operations - single file with rename")
+@xfail
+def test_18_zipSingleFileRename(_=setupTestCopyMove):
+    """Creates a zip archive from a single file with a custom name in the archive."""
+    raise NotImplementedError
+    # def _doZip(src, dst):
+    #     getCurrentContext().clearRules()
+    #     Rule(deps=src, targets=dst, builder=zip).apply()
+    #     getCurrentContext().clearRules()
+
+    # test_file_1 = Path("test_file_1.txt")
+    # test_archive = Path("archive.zip")
+
+    # # Create the source file
+    # with open(test_file_1, "w") as f:
+    #     f.write("This is a test file.")
+
+    # # Will fail here, currently no way to pass no name inside rule structure.
+    # _doZip((test_file_1, "custom_name_in_zip.txt"), test_archive)
+
+    # # Verify the archive exists
+    # assert test_archive.exists() is True
+
+    # # Extract the archive and verify content
+    # with zipfile.ZipFile(test_archive) as zipball:
+    #     zipball.extractall()
+    # with open("custom_name.txt", "r") as f:
+    #     content = f.read()
+    # assert content == "This is a test file."
+
+    # # Clean up
+    # os.remove("custom_name.txt")
+    # os.remove(test_archive)
+
+
+@test("Basic zip operations - multiple files")
+def test_19_zipMultipleFiles(_=setupTestCopyMove):
+    """Creates a zip archive from multiple files."""
+    def _doZip(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=zip).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_file_2 = Path("test_file_2.txt")
+    test_archive = Path("archive.zip")
+
+    # Create the source files
+    with open(test_file_1, "w") as f:
+        f.write("This is a test file 1.")
+    with open(test_file_2, "w") as f:
+        f.write("This is a test file 2.")
+
+    _doZip([test_file_1, test_file_2], test_archive)
+
+    # Make sure files does not exists except in archive
+    os.remove(test_file_1)
+    os.remove(test_file_2)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with zipfile.ZipFile(test_archive) as zipball:
+        zipball.extractall()
+    with open(test_file_1, "r") as f:
+        content = f.read()
+    assert content == "This is a test file 1."
+    with open(test_file_2, "r") as f:
+        content = f.read()
+    assert content == "This is a test file 2."
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_file_2)
+    os.remove(test_archive)
+
+
+@test("Basic zip operations - directory")
+def test_20_zipDirectory(_=setupTestCopyMove):
+    """Creates a zip archive from a directory."""
+    def _doZip(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=zip).apply()
+        getCurrentContext().clearRules()
+
+    test_dir_1 = Path("test_dir_1")
+    test_file_3 = test_dir_1 / "test_file_3.txt"
+    test_archive = Path("archive.zip")
+
+    _doZip(test_dir_1, test_archive)
+
+    # Make sure files does not exists except in archive
+    shutil.rmtree(test_dir_1)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content
+    with zipfile.ZipFile(test_archive) as zipball:
+        zipball.extractall()
+    with open(test_file_3, "r") as f:
+        content = f.read()
+    assert content == "Another other test file."
+
+    # Clean up
+    shutil.rmtree(test_dir_1)
+    os.remove(test_archive)
+
+
+@test("Basic zip operations - link")
+def test_21_zipLink(_=setupTestCopyMove):
+    """Creates a zip archive from a symbolic link."""
+    def _doZip(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=zip).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_link = Path("link_to_file_1.lnk")
+    test_archive = Path("archive.zip")
+
+    _doZip(test_link, test_archive)
+
+    # Make sure files does not exists except in archive
+    os.remove(test_link)
+
+    # Verify the archive exists
+    assert test_archive.exists() is True
+
+    # Extract the archive and verify content (link will be recreated as a file)
+    with zipfile.ZipFile(test_archive) as zipball:
+        zipball.extractall()
+    with open(test_link.resolve(), "r") as f:
+        contentLink = f.read()
+    with open(test_file_1, "r") as f:
+        contentFile = f.read()
+    assert contentLink == contentFile
+
+    # Clean up
+    os.remove(test_file_1)
+    os.remove(test_link)
+    os.remove(test_archive)
+
+
+@test("Zip errors - non-existent source")
+def test_22_zipNonexistentSource(_=setupTestCopyMove):
+    """Attempts to create a zip archive from a non-existent source and raises an error."""
+    def _doZip(src, dst):
+        getCurrentContext().clearRules()
+        Rule(deps=src, targets=dst, builder=zip).apply()
+        getCurrentContext().clearRules()
+
+    test_archive = Path("archive.zip.gz")
+    source = Path("nonexistent_file.txt")
+
+    with raises(FileNotFoundError):
+        _doZip(source, test_archive)
+
+    # Clean up (archive won't be created)
+    assert not test_archive.exists()
