@@ -3,6 +3,93 @@
 """ReMake functions to handle contexts."""
 
 from collections import deque
+from typeguard import typechecked
+
+VERBOSE = False
+DRY_RUN = False
+DEV_TEST = False
+CLEAN = False
+
+
+@typechecked()
+def isVerbose() -> bool:
+    """Returns True if run is in verbose mode, False otherwise."""
+    return VERBOSE
+
+
+@typechecked()
+def isDryRun() -> bool:
+    """Returns True if run is in dry run mode, False otherwise."""
+    return DRY_RUN
+
+
+@typechecked()
+def isDevTest() -> bool:
+    """Returns True if run is in development mode, False otherwise."""
+    return DEV_TEST
+
+
+@typechecked()
+def isClean() -> bool:
+    """Returns True if run is in clean mode, False otherwise."""
+    return CLEAN
+
+
+@typechecked()
+def setDryRun() -> None:
+    """Sets run to dry run mode."""
+    global DRY_RUN
+    DRY_RUN = True
+
+
+@typechecked()
+def setVerbose() -> None:
+    """Sets run to verbose mode."""
+    global VERBOSE
+    VERBOSE = True
+
+
+@typechecked()
+def setDevTest() -> None:
+    """Sets run to development mode."""
+    global DEV_TEST
+    DEV_TEST = True
+
+
+@typechecked()
+def setClean() -> None:
+    """Sets run to clean mode."""
+    global CLEAN
+    CLEAN = True
+
+
+@typechecked()
+def unsetDryRun() -> None:
+    """Sets run to NOT dry run mode."""
+    global DRY_RUN
+    DRY_RUN = False
+
+
+@typechecked()
+def unsetVerbose() -> None:
+    """Sets run to NOT verbose mode."""
+    global VERBOSE
+    VERBOSE = False
+
+
+@typechecked()
+def unsetDevTest() -> None:
+    """Sets run to NOT development mode."""
+    global DEV_TEST
+    DEV_TEST = False
+    resetOldContexts()
+
+
+@typechecked()
+def unsetClean() -> None:
+    """Sets run to NOT clean mode."""
+    global CLEAN
+    CLEAN = False
 
 
 def getOldContext(cwd):

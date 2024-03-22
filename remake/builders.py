@@ -2,13 +2,99 @@
 # -*- coding: utf-8 -*-
 """Default builders for ReMake."""
 
+import pathlib
 import os
 import shutil
 import subprocess
 import tarfile
 import zipfile
 
-from remake.main import Builder
+from collections.abc import Callable
+from rich.console import Console
+from typeguard import typechecked
+
+from remake.context import getCurrentContext
+from remake.paths import VirtualTarget, VirtualDep, GlobPattern, shouldRebuild
+
+
+@typechecked()
+class Builder():
+    """Generic builder class."""
+    _action = None
+    _shouldRebuild = None
+
+    def __init__(
+        self,
+        action: list[str] | str | Callable[[list[str],
+                                            list[str],
+                                            Console],
+                                           None],
+        ephemeral: bool = False,
+        shouldRebuildFun: Callable[[VirtualTarget | pathlib.Path,
+                                    list[VirtualDep | pathlib.Path]],
+                                   bool] | None = None,
+    ):
+        if isinstance(action, str):
+            self._action = action.split(" ")
+        else:
+            self._action = action
+        self._shouldRebuild = shouldRebuildFun
+        if not ephemeral:
+            self._register()
+
+    def __eq__(self, other):
+        return self._action == other._action
+
+    def __hash__(self):
+        if isinstance(self._action, list):
+            return hash(tuple(self._action))  # Hash based on list action
+
+        return hash(id(self._action))  # Hash based on function
+
+    def _register(self) -> None:
+        getCurrentContext().addBuilder(self)
+
+    def parseAction(
+        self,
+        deps: list[VirtualDep | pathlib.Path | GlobPattern],
+        targets: list[VirtualTarget | pathlib.Path | GlobPattern]
+    ) -> list[str] | Callable[[list[str],
+                               list[str],
+                               Console],
+                              None]:
+        """Parses builder action for automatic variables ($@, etc)."""
+        def _replace_in_action(llist, pattern, repl):
+            try:
+                i = llist.index(pattern)
+            except ValueError:
+                return llist
+            return llist[:i] + repl + llist[i + 1:]
+
+        if isinstance(self._action, list):
+            ret = self._action
+            ret = _replace_in_action(ret, "$@", targets)
+            if deps:
+                ret = _replace_in_action(ret, "$^", [deps[0]])
+                ret = _replace_in_action(ret, "$<", deps)
+            return ret
+
+        return self._action
+
+    @property
+    def action(self) -> Callable[[list[str], list[str], Console], None]:
+        """Returns builder's action."""
+        return self._action
+
+    @property
+    def type(self):
+        """Returns builder's action's type (list vs. callable)."""
+        return type(self._action)
+
+    @property
+    def shouldRebuild(self):
+        """Returns buider's custom shouldRebuild function."""
+        return self._shouldRebuild
+
 
 # ==================================================
 # =              File Operations                   =
@@ -16,18 +102,18 @@ from remake.main import Builder
 
 
 def _FILE_OPS_shouldRebuild(target, deps):
-    from remake.main import shouldRebuild
-
     if len(deps) > 1:
         ret = False
         for dep in deps:
             ret = ret or shouldRebuild(target / dep.name, [dep])
+
         return ret
-    else:
-        dep = deps[0]
-        if target.is_dir():
-            target = target / dep.name
-        return shouldRebuild(target, [dep])
+
+    dep = deps[0]
+    if target.is_dir():
+        target = target / dep.name
+
+    return shouldRebuild(target, [dep])
 
 
 # Expects either :
@@ -66,7 +152,7 @@ def _cp(deps, targets, _):
             shutil.copytree(dep, target)
 
 
-cp = Builder(action=_cp, shouldRebuild=_FILE_OPS_shouldRebuild)
+cp = Builder(action=_cp, shouldRebuildFun=_FILE_OPS_shouldRebuild)
 
 
 # Expects either :
@@ -90,7 +176,7 @@ def _mv(deps, targets, _):
         shutil.move(dep, targets[0])
 
 
-mv = Builder(action=_mv, shouldRebuild=_FILE_OPS_shouldRebuild)
+mv = Builder(action=_mv, shouldRebuildFun=_FILE_OPS_shouldRebuild)
 
 
 def _rm(deps, targets, _):
