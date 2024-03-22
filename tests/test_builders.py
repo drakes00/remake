@@ -626,7 +626,6 @@ def test_15_tarNonexistentSource(_=setupTestCopyMove):
     def _doTar(src, dst):
         getCurrentContext().clearRules()
         Rule(deps=src, targets=dst, builder=tar).apply()
-        getCurrentContext().clearRules()
 
     test_archive = Path("archive.tar.gz")
     source = Path("nonexistent_file.txt")
@@ -865,7 +864,6 @@ def test_22_zipNonexistentSource(_=setupTestCopyMove):
     def _doZip(src, dst):
         getCurrentContext().clearRules()
         Rule(deps=src, targets=dst, builder=zip).apply()
-        getCurrentContext().clearRules()
 
     test_archive = Path("archive.zip.gz")
     source = Path("nonexistent_file.txt")
