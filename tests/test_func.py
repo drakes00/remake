@@ -324,7 +324,7 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == [pathlib.Path("/tmp/c"), ((pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")), r_1)]
+    assert generateDependencyList() == [pathlib.Path("/tmp/c"), ([pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")], r_1)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -332,7 +332,7 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     r_2 = Rule(targets=["a", "b"], builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == [((pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")), r_2)]
+    assert generateDependencyList() == [([pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")], r_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -343,9 +343,9 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("c")
     assert generateDependencyList() == [
         pathlib.Path("/tmp/d"),
-        ((pathlib.Path("/tmp/a"),
+        ([pathlib.Path("/tmp/a"),
           pathlib.Path("/tmp/b"),
-          pathlib.Path("/tmp/c")),
+          pathlib.Path("/tmp/c")],
          r_3)
     ]
     getCurrentContext().clearRules()
@@ -360,12 +360,12 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("e")
     assert generateDependencyList() == [
         pathlib.Path("/tmp/c"),
-        ((pathlib.Path("/tmp/a"),
-          pathlib.Path("/tmp/b")),
+        ([pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")],
          r_4_1),
         pathlib.Path("/tmp/f"),
-        ((pathlib.Path("/tmp/d"),
-          pathlib.Path("/tmp/e")),
+        ([pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")],
          r_4_2)
     ]
     getCurrentContext().clearRules()
@@ -380,11 +380,11 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     AddTarget("e")
     assert generateDependencyList() == [
         pathlib.Path("/tmp/c"),
-        ((pathlib.Path("/tmp/a"),
-          pathlib.Path("/tmp/b")),
+        ([pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")],
          r_5_1),
-        ((pathlib.Path("/tmp/d"),
-          pathlib.Path("/tmp/e")),
+        ([pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")],
          r_5_2)
     ]
 
@@ -405,11 +405,11 @@ def test_07_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     AddTarget("e")
     os.chdir("/tmp")
     assert buildDeps(generateDependencyList()) == [
-        ((pathlib.Path("/tmp/a"),
-          pathlib.Path("/tmp/b")),
+        ([pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")],
          r_1),
-        ((pathlib.Path("/tmp/d"),
-          pathlib.Path("/tmp/e")),
+        ([pathlib.Path("/tmp/d"),
+          pathlib.Path("/tmp/e")],
          r_2)
     ]
 

@@ -13,6 +13,7 @@ from collections import deque
 from rich.progress import Progress
 from rich.console import Console
 from typeguard import typechecked
+from typing import Dict, List, Tuple, Union
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, Context
 from remake.context import isDryRun, isDevTest, isClean, setVerbose, setDryRun, setClean
@@ -20,8 +21,12 @@ from remake.paths import VirtualTarget, VirtualDep
 from remake.builders import Builder  # Import needed to avoid imports in ReMakeFile
 from remake.rules import Rule, PatternRule
 
+TYP_PATH = Union[pathlib.Path, VirtualTarget, VirtualDep]
+TYP_DEP_LIST = List[Union[TYP_PATH, Tuple[Union[TYP_PATH, List[TYP_PATH]], Rule]]]
+TYP_DEP_GRAPH = Union[TYP_PATH, Dict[Tuple[TYP_PATH, Rule], List["TYP_DEP_GRAPH"]]]
 
-@typechecked()
+
+@typechecked
 class AddTarget():
     """Class registering files as remake targets."""
     def __init__(self, targets: list[str | pathlib.Path] | str | pathlib.Path):
@@ -31,22 +36,22 @@ class AddTarget():
             getCurrentContext().addTargets([pathlib.Path(_).absolute() for _ in targets])
 
 
-@typechecked()
-class AddVirtualTarget(VirtualTarget):
-    """Class registering remake targets that are not files."""
-    def __init__(self, name: str):
-        super().__init__(name)
-        getCurrentContext().addTargets(self)
+@typechecked
+def AddVirtualTarget(name: str) -> VirtualTarget:
+    """Method registering remake targets that are not files."""
+    ret = VirtualTarget(name)
+    getCurrentContext().addTargets(ret)
+    return ret
 
 
-@typechecked()
+@typechecked
 class SubReMakeDir():
     """Instanciate a sub context for a call to a sub ReMakeFile."""
     def __init__(self, subDir):
         executeReMakeFileFromDirectory(subDir)
 
 
-@typechecked()
+@typechecked
 def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", targets: list | None = None) -> Context:
     """Loads ReMakeFile from current directory in a new context and builds
     associated targets."""
@@ -73,8 +78,10 @@ def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", tar
         addOldContext(absCwd, oldContext)
     return oldContext
 
+    return tmp
 
-@typechecked()
+
+@typechecked
 def loadScript(configFile: str = "ReMakeFile") -> None:
     """Loads and execs the ReMakeFile script."""
     with open(configFile, "r", encoding="utf-8") as handle:
@@ -83,14 +90,8 @@ def loadScript(configFile: str = "ReMakeFile") -> None:
     exec(script)
 
 
-@typechecked()
-def generateDependencyList(
-    targets: list | None = None
-) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
-                                                    ...],
-                               Rule]] | tuple[pathlib.Path | tuple[pathlib.Path,
-                                                                   ...],
-                                              Rule]:
+@typechecked
+def generateDependencyList(targets: list[TYP_PATH] | None = None) -> TYP_DEP_LIST:
     """Generates and sorts dependency list."""
     deps = []
     if targets is None:
@@ -104,10 +105,8 @@ def generateDependencyList(
     return deps
 
 
-@typechecked()
-def findBuildPath(
-    target: pathlib.Path | VirtualTarget | VirtualDep
-) -> VirtualTarget | VirtualDep | pathlib.Path | dict:
+@typechecked
+def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
     """Constructs dependency graph from registered rules."""
     depNames = []
     foundRule = None
@@ -188,12 +187,8 @@ def findBuildPath(
             sys.exit(1)
 
 
-@typechecked()
-def sortDeps(
-    deps: list[VirtualTarget | VirtualDep | pathlib.Path | dict]
-) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
-                                                    ...],
-                               Rule]]:
+@typechecked
+def sortDeps(deps: List[TYP_DEP_GRAPH]) -> TYP_DEP_LIST:
     """Sorts dependency graph as a reverse level order list.
     Snippet from: https://www.geeksforgeeks.org/reverse-level-order-traversal/"""
     tmpQueue = deque()
@@ -214,16 +209,10 @@ def sortDeps(
     return list(ret)
 
 
-@typechecked()
-def optimizeDeps(
-    deps: list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
-                                                         ...],
-                                    Rule]]
-) -> list[pathlib.Path | tuple[pathlib.Path | tuple[pathlib.Path,
-                                                    ...],
-                               Rule]]:
+@typechecked
+def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
     """Removes rules from dependencies list """
-    def _mergeTargetsSameRule(origDeps):
+    def _mergeTargetsSameRule(origDeps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         """Remove duplicate calls to a rule that produces multiple dependencies."""
         ret = []
         if len(origDeps) < 2:
@@ -246,7 +235,7 @@ def optimizeDeps(
                 if otherTargets:
                     # If there are other targets, merge them.
                     allTargetsSameRule = [_[0] for _ in otherTargets] + [target[0]]
-                    allTargetsSameRule = tuple(
+                    allTargetsSameRule = list(
                         i for (n,
                                i) in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
                     )
@@ -263,7 +252,7 @@ def optimizeDeps(
         ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
         return ret
 
-    def _removeDuplicatesWithNoRules(deps):
+    def _removeDuplicatesWithNoRules(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         """Remove duplicate targets that have no associated rule."""
         ret = []
         if len(deps) < 2:
@@ -288,11 +277,8 @@ def optimizeDeps(
     return deps
 
 
-@typechecked()
-def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
-                                              Rule]],
-              configFile: str = "ReMakeFile") -> list[pathlib.Path | tuple[pathlib.Path,
-                                                                           Rule]]:
+@typechecked
+def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIST:
     """Builds files marked as targets from their dependencies."""
     def _cleanDep(target):
         if os.path.exists(target):
@@ -329,12 +315,8 @@ def cleanDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
     return deps
 
 
-@typechecked()
-def buildDeps(deps: list[pathlib.Path | tuple[pathlib.Path,
-                                              Rule]],
-              configFile: str = "ReMakeFile") -> list[tuple[pathlib.Path | tuple[pathlib.Path,
-                                                                                 pathlib.Path],
-                                                            Rule]]:
+@typechecked
+def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIST:
     """Builds files marked as targets from their dependencies."""
     rulesApplied = []
     with Progress() as progress:

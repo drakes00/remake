@@ -163,7 +163,7 @@ class Context():
                 self._targets += [targets]
 
     @property
-    def targets(self):
+    def targets(self) -> list:
         """Returns the list of targets to build from current context."""
         return self._targets
 
