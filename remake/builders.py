@@ -193,7 +193,7 @@ rm = Builder(action=_rm)
 def _tar(deps, targets, _, compression=""):
     cwd = os.getcwd()
     mode = f"w:{compression}" if compression in ("gz", "bz2", "xz") else "w"
-    with tarfile.open(targets[0], mode) as tar:
+    with tarfile.open(targets[0], mode, encoding="utf-8") as tar:
         for dep in deps:
             tar.add(dep.relative_to(cwd))
 

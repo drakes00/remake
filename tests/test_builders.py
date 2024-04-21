@@ -49,11 +49,11 @@ def setupTestCopyMove():
     os.makedirs(test_dir_2, exist_ok=True)
     os.makedirs(test_dir_3, exist_ok=True)
     os.makedirs(test_dir_4, exist_ok=True)
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file.")
-    with open(test_file_2, "w") as f:
+    with open(test_file_2, "w", encoding="utf-8") as f:
         f.write("Another test file.")
-    with open(test_file_3, "w") as f:
+    with open(test_file_3, "w", encoding="utf-8") as f:
         f.write("Another other test file.")
 
     try:
@@ -159,7 +159,7 @@ def test_05_copyFileOperations(_=setupTestCopyMove):
     destination = test_dir_1
     _doCopy(source, destination)
     assert (destination / source).is_file() is True
-    with open(destination / source, "r") as f:
+    with open(destination / source, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
     os.remove(destination / source)
@@ -169,7 +169,7 @@ def test_05_copyFileOperations(_=setupTestCopyMove):
     destination = test_dir_1 / "copied_file.txt"
     _doCopy(source, destination)
     assert destination.exists() is True
-    with open(destination, "r") as f:
+    with open(destination, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
     os.remove(destination)
@@ -183,7 +183,7 @@ def test_05_copyFileOperations(_=setupTestCopyMove):
     source.touch()
     _doCopy(source, destination)
     assert destination.exists() is True
-    with open(destination, "r") as f:
+    with open(destination, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "Another test file."
     os.remove(destination)
@@ -298,7 +298,7 @@ def test_07_copyLinkOperations(_=setupTestCopyMove):
     _doCopy(source, destination)
     assert destination.exists() is True
     assert destination.is_file() is True
-    with open(destination, "r") as f:
+    with open(destination, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
     os.remove(destination)
@@ -346,7 +346,7 @@ def test_08_moveFileOperations(_=setupTestCopyMove):
     _doMove(source, destination)
     assert source.exists() is False
     assert destination.exists() is True
-    with open(destination, "r") as f:
+    with open(destination, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
     os.remove(destination)
@@ -452,7 +452,7 @@ def test_10_tarSingleFile(_=setupTestCopyMove):
     test_archive = Path("archive.tar")
 
     # Create the source file
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file.")
 
     _doTar(test_file_1, test_archive)
@@ -464,9 +464,9 @@ def test_10_tarSingleFile(_=setupTestCopyMove):
     assert test_archive.exists() is True
 
     # Extract the archive and verify content
-    with tarfile.open(test_archive) as tarball:
+    with tarfile.open(test_archive, encoding="utf-8") as tarball:
         tarball.extractall()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
 
@@ -489,7 +489,7 @@ def test_11_tarSingleFileRename(_=setupTestCopyMove):
     # test_archive = Path("archive.tar")
 
     # # Create the source file
-    # with open(test_file_1, "w") as f:
+    # with open(test_file_1, "w", encoding="utf-8") as f:
     #     f.write("This is a test file.")
 
     # # Will fail here, currently no way to pass no name inside rule structure.
@@ -499,9 +499,9 @@ def test_11_tarSingleFileRename(_=setupTestCopyMove):
     # assert test_archive.exists() is True
 
     # # Extract the archive and verify content
-    # with tarfile.open(test_archive) as tarball:
+    # with tarfile.open(test_archive, encoding="utf-8") as tarball:
     #     tarball.extractall()
-    # with open("custom_name.txt", "r") as f:
+    # with open("custom_name.txt", "r", encoding="utf-8") as f:
     #     content = f.read()
     # assert content == "This is a test file."
 
@@ -523,9 +523,9 @@ def test_12_tarMultipleFiles(_=setupTestCopyMove):
     test_archive = Path("archive.tar")
 
     # Create the source files
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file 1.")
-    with open(test_file_2, "w") as f:
+    with open(test_file_2, "w", encoding="utf-8") as f:
         f.write("This is a test file 2.")
 
     _doTar([test_file_1, test_file_2], test_archive)
@@ -538,12 +538,12 @@ def test_12_tarMultipleFiles(_=setupTestCopyMove):
     assert test_archive.exists() is True
 
     # Extract the archive and verify content
-    with tarfile.open(test_archive) as tarball:
+    with tarfile.open(test_archive, encoding="utf-8") as tarball:
         tarball.extractall()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file 1."
-    with open(test_file_2, "r") as f:
+    with open(test_file_2, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file 2."
 
@@ -574,9 +574,9 @@ def test_13_tarDirectory(_=setupTestCopyMove):
     assert test_archive.exists() is True
 
     # Extract the archive and verify content
-    with tarfile.open(test_archive) as tarball:
+    with tarfile.open(test_archive, encoding="utf-8") as tarball:
         tarball.extractall()
-    with open(test_file_3, "r") as f:
+    with open(test_file_3, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "Another other test file."
 
@@ -606,11 +606,11 @@ def test_14_tarLink(_=setupTestCopyMove):
     assert test_archive.exists() is True
 
     # Extract the archive and verify content (link will be recreated as a file)
-    with tarfile.open(test_archive) as tarball:
+    with tarfile.open(test_archive, encoding="utf-8") as tarball:
         tarball.extractall()
-    with open(test_link.resolve(), "r") as f:
+    with open(test_link.resolve(), "r", encoding="utf-8") as f:
         contentLink = f.read()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         contentFile = f.read()
     assert contentLink == contentFile
 
@@ -653,7 +653,7 @@ def test_16_tarCompression(_=setupTestCopyMove):
 
     # Create the source directory and file
     os.makedirs(test_dir_1, exist_ok=True)
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file.")
 
     # Create archives with different compression
@@ -690,7 +690,7 @@ def test_17_zipSingleFile(_=setupTestCopyMove):
     test_archive = Path("archive.zip")
 
     # Create the source file
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file.")
 
     _doZip(test_file_1, test_archive)
@@ -704,7 +704,7 @@ def test_17_zipSingleFile(_=setupTestCopyMove):
     # Extract the archive and verify content
     with zipfile.ZipFile(test_archive) as zipball:
         zipball.extractall()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file."
 
@@ -727,7 +727,7 @@ def test_18_zipSingleFileRename(_=setupTestCopyMove):
     # test_archive = Path("archive.zip")
 
     # # Create the source file
-    # with open(test_file_1, "w") as f:
+    # with open(test_file_1, "w", encoding="utf-8") as f:
     #     f.write("This is a test file.")
 
     # # Will fail here, currently no way to pass no name inside rule structure.
@@ -739,7 +739,7 @@ def test_18_zipSingleFileRename(_=setupTestCopyMove):
     # # Extract the archive and verify content
     # with zipfile.ZipFile(test_archive) as zipball:
     #     zipball.extractall()
-    # with open("custom_name.txt", "r") as f:
+    # with open("custom_name.txt", "r", encoding="utf-8") as f:
     #     content = f.read()
     # assert content == "This is a test file."
 
@@ -761,9 +761,9 @@ def test_19_zipMultipleFiles(_=setupTestCopyMove):
     test_archive = Path("archive.zip")
 
     # Create the source files
-    with open(test_file_1, "w") as f:
+    with open(test_file_1, "w", encoding="utf-8") as f:
         f.write("This is a test file 1.")
-    with open(test_file_2, "w") as f:
+    with open(test_file_2, "w", encoding="utf-8") as f:
         f.write("This is a test file 2.")
 
     _doZip([test_file_1, test_file_2], test_archive)
@@ -778,10 +778,10 @@ def test_19_zipMultipleFiles(_=setupTestCopyMove):
     # Extract the archive and verify content
     with zipfile.ZipFile(test_archive) as zipball:
         zipball.extractall()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file 1."
-    with open(test_file_2, "r") as f:
+    with open(test_file_2, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "This is a test file 2."
 
@@ -814,7 +814,7 @@ def test_20_zipDirectory(_=setupTestCopyMove):
     # Extract the archive and verify content
     with zipfile.ZipFile(test_archive) as zipball:
         zipball.extractall()
-    with open(test_file_3, "r") as f:
+    with open(test_file_3, "r", encoding="utf-8") as f:
         content = f.read()
     assert content == "Another other test file."
 
@@ -846,9 +846,9 @@ def test_21_zipLink(_=setupTestCopyMove):
     # Extract the archive and verify content (link will be recreated as a file)
     with zipfile.ZipFile(test_archive) as zipball:
         zipball.extractall()
-    with open(test_link.resolve(), "r") as f:
+    with open(test_link.resolve(), "r", encoding="utf-8") as f:
         contentLink = f.read()
-    with open(test_file_1, "r") as f:
+    with open(test_file_1, "r", encoding="utf-8") as f:
         contentFile = f.read()
     assert contentLink == contentFile
 

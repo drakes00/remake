@@ -6,7 +6,7 @@ import os
 import pathlib
 
 from typeguard import TypeCheckError
-from ward import test, fixture, raises, xfail
+from ward import test, fixture, raises
 
 from remake import Builder, Rule, PatternRule, VirtualDep, VirtualTarget, GlobPattern
 from remake import unsetDryRun, unsetDevTest, getCurrentContext
