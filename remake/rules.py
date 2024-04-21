@@ -198,12 +198,12 @@ class PatternRule(Rule):
 
     def __init__(self, target: str, deps: list[str] | str, builder: Builder, exclude: list[str] | None = None):
         # FIXME Does not seem to handle PatternRules such as "a*.foo"
-        assert target.startswith("*")
+        assert target.count("*") == 1
         if isinstance(deps, list):
             for dep in deps:
-                assert dep.startswith("*")
+                assert dep.count("*") == 1
         elif isinstance(deps, str):
-            assert deps.startswith("*")
+            assert deps.count("*") == 1
         else:
             raise NotImplementedError
         self._exclude = [] if exclude is None else exclude
@@ -221,6 +221,12 @@ class PatternRule(Rule):
         """Returns pattern associated to the target."""
         return self._targets[0].pattern
 
+    def instanciate(self, other: pathlib.Path, dep: GlobPattern) -> pathlib.Path:
+        """Returns the pattern of the target instanciated with the raddix of `other`."""
+        prefix, suffix = self.targetPattern.split("*")
+        raddix = str(other).replace(prefix, "").replace(suffix, "")
+        return pathlib.Path(dep.pattern.replace("*", raddix))
+
     def match(self, other: pathlib.Path | str) -> list[pathlib.Path]:
         """Check if `other` matches dependency pattern and is not in exclude list.
         If True, returns corresponding dependencies names.
@@ -236,7 +242,7 @@ class PatternRule(Rule):
         assert all(isinstance(_, GlobPattern) for _ in self._targets)
         if other.match(self.targetPattern):
             for dep in self._deps:
-                ret += [other.with_suffix(dep.suffix)]
+                ret += [self.instanciate(other, dep)]
 
         return ret
 
