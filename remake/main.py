@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Main funtions of ReMake."""
+"""Main functions of ReMake."""
 
 import argparse
 import os
@@ -27,7 +27,7 @@ TYP_DEP_GRAPH = Union[TYP_PATH, Dict[Tuple[TYP_PATH, Rule], List["TYP_DEP_GRAPH"
 
 
 @typechecked
-class AddTarget():
+class AddTarget:
     """Class registering files as remake targets."""
     def __init__(self, targets: list[str | pathlib.Path] | str | pathlib.Path):
         if isinstance(targets, (str, pathlib.Path)):
@@ -45,22 +45,23 @@ def AddVirtualTarget(name: str) -> VirtualTarget:
 
 
 @typechecked
-class SubReMakeDir():
-    """Instanciate a sub context for a call to a sub ReMakeFile."""
-    def __init__(self, subDir):
+class SubReMakeDir:
+    """Instantiate a sub context for a call to a sub ReMakeFile."""
+    def __init__(self, subDir: str):
         executeReMakeFileFromDirectory(subDir)
 
 
 @typechecked
 def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", targets: list | None = None) -> Context:
-    """Loads ReMakeFile from current directory in a new context and builds
-    associated targets."""
+    """Loads ReMakeFile from current directory in a new context and builds associated targets."""
     absCwd = os.path.abspath(cwd)
     addContext(absCwd)
     oldCwd = os.getcwd()
     os.chdir(absCwd)
 
     loadScript(configFile)
+    if targets:
+        targets = parseTargets(targets)
     deps = generateDependencyList(targets)
     executedRules = []
     if isClean() and deps:
@@ -78,8 +79,6 @@ def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", tar
         addOldContext(absCwd, oldContext)
     return oldContext
 
-    return tmp
-
 
 @typechecked
 def loadScript(configFile: str = "ReMakeFile") -> None:
@@ -88,6 +87,19 @@ def loadScript(configFile: str = "ReMakeFile") -> None:
         script = handle.read()
 
     exec(script)
+
+
+@typechecked
+def parseTargets(targets: list[str]) -> list[TYP_PATH]:
+    """Parses the list of target to build and matches them to registered targets and virtual targets."""
+    ret = []
+    registeredTargets = getCurrentContext().targets
+    for target in targets:
+        for registeredTarget in registeredTargets:
+            if isinstance(registeredTarget, VirtualTarget) and registeredTarget.matches(target):
+                ret += [registeredTarget]
+
+    return ret
 
 
 @typechecked
@@ -110,9 +122,6 @@ def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
     """Constructs dependency graph from registered rules."""
     depNames = []
     foundRule = None
-
-    # import pdb
-    # pdb.set_trace()
 
     # Iterate over all contexts from the current context (leaf) to the parents (root).
     for context in reversed(getContexts()):
@@ -249,7 +258,7 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
                 ret += [target]
             del deps[-1]
 
-        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
+        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
         return ret
 
     def _removeDuplicatesWithNoRules(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
@@ -260,16 +269,16 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
 
         for i in range(1, len(deps)):
             # Iterates over the dependencies starting from the end to compare with left side of the array.
-            # First element is omitted since their is nothing to the left.
+            # First element is omitted since there is nothing to the left.
             target = deps[-i]
             lhsDeps = deps[:-i]
 
-            # Check if target appears multiple times in the list of dependencies (including if associated with a rule.
+            # Check if target appears multiple times in the list of dependencies (including if associated with a rule).
             if target not in lhsDeps and target not in [_[0] for _ in lhsDeps if isinstance(_, tuple)]:
                 ret += [target]
 
         ret = ret + [deps[0]]  # Put back the first target that was omitted above.
-        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the begening.
+        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
         return ret
 
     deps = _mergeTargetsSameRule(deps)
@@ -287,7 +296,7 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
             )
             if target.is_file():
                 os.remove(target)
-            elif target.isdir():
+            elif target.is_dir():
                 shutil.rmtree(target)
 
     with Progress() as progress:
@@ -298,7 +307,7 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
         for job, dep in enumerate(deps):
             if isinstance(dep, pathlib.Path):
                 # Ground dependency (tree leaf).
-                # Let's not delete a ground dependency..
+                # Let's not delete a ground dependency.
                 progress.advance(task)
             elif isinstance(dep, tuple):
                 target, rule = dep
@@ -327,7 +336,7 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
         for job, dep in enumerate(deps):
             if isinstance(dep, pathlib.Path):
                 # Ground dependency (tree leaf).
-                if isDryRun() is True:
+                if isDryRun():
                     progress.console.print(
                         f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
                     )
@@ -365,7 +374,7 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
 
 
 def main():
-    """Main funtion of ReMake."""
+    """Main function of ReMake."""
     argparser = argparse.ArgumentParser(prog="remake", description="ReMake is a make-like tool.")
     argparser.add_argument(
         "-v",

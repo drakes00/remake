@@ -26,6 +26,9 @@ class VirtualTarget():
     def __lt__(self, other):
         return self._name < other._name
 
+    def matches(self, other):
+        return self._name == other
+
 
 @typechecked()
 class VirtualDep():
