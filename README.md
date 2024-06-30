@@ -62,7 +62,7 @@ point is the automatically parsed `ReMakeFile`, and the build process is
 initiated by running:
 
 ```bash
-remake [target]
+python -m remake [target]
 ```
 
 `target` is an optionnal absolute path to a target specified in the ReMakeFile.
@@ -75,7 +75,7 @@ Key command-line options include:
 For additional options and details, use:
 
 ```bash
-remake --help
+python -m remake --help
 ```
 
 More information can be found in [documentation](./doc/).
