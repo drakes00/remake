@@ -111,7 +111,6 @@ def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
     """Constructs dependency graph from registered rules."""
     depNames = []
     foundRule = None
-    # breakpoint()
 
     # Iterate over all contexts from the current context (leaf) to the parents (root).
     for context in reversed(getContexts()):
@@ -290,8 +289,6 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
         return ret
 
-    # from rich.pretty import pprint
-    # pprint(deps)
     deps = _removeDuplicatesWithNoRules(deps)
     deps = _mergeTargetsSameRule(deps)
     return deps
