@@ -4,11 +4,14 @@
 
 import os
 import pathlib
+import re
 import subprocess
+from remake.paths import TYP_DEP, TYP_PATH, TYP_PATH_LOOSE, TYP_TARGET
 
 from rich.progress import Progress
 from rich.console import Console
 from typeguard import typechecked
+from typing import Dict, List, Tuple, Union
 
 from remake.context import getCurrentContext
 from remake.context import isDryRun
@@ -26,9 +29,9 @@ class Rule():
 
     def __init__(
         self,
-        targets: list[VirtualTarget | str | pathlib.Path] | VirtualTarget | str | pathlib.Path,
+        targets: list[TYP_TARGET] | TYP_TARGET,
         builder: Builder,
-        deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path | None = None,
+        deps: list[TYP_DEP] | TYP_DEP | None = None,
         ephemeral: bool = False,
         **kwargs
     ):
@@ -43,7 +46,7 @@ class Rule():
         if not ephemeral:
             self._register()
 
-    def _parseDeps(self, deps: list[VirtualDep | str | pathlib.Path] | VirtualDep | str | pathlib.Path):
+    def _parseDeps(self, deps: list[TYP_DEP] | TYP_DEP):
         if isinstance(deps, (str, pathlib.Path)):
             # Dep is a single string or pathlib path, need to be expanded to absolute path.
             return [self._expandToAbsPath(deps)]
@@ -67,7 +70,7 @@ class Rule():
 
         return ret
 
-    def _parseTargets(self, targets: list[VirtualTarget | str | pathlib.Path] | VirtualTarget | str | pathlib.Path):
+    def _parseTargets(self, targets: list[TYP_TARGET] | TYP_TARGET):
         if isinstance(targets, (str, pathlib.Path)):
             # Target is a single string or pathlib path, need to be expanded to absolute path.
             return [self._expandToAbsPath(targets)]
@@ -99,7 +102,13 @@ class Rule():
         return pathlib.Path(filename).absolute()
 
     def __eq__(self, other) -> bool:
-        return (self._targets, self._deps, self._builder) == (other._targets, other._deps, other._builder)
+        return other is not None and isinstance(other,
+                                                Rule) and (self._targets,
+                                                           self._deps,
+                                                           self._builder
+                                                          ) == (other._targets,
+                                                                other._deps,
+                                                                other._builder)
 
     def __hash__(self):
         return hash(tuple([tuple(self._targets), *self._deps, self._builder]))
@@ -144,6 +153,14 @@ class Rule():
                     raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
 
         return True
+
+    def match(self, other: TYP_PATH_LOOSE) -> TYP_PATH | None:
+        """Returns True if other matches any target of the rule, False else."""
+        for target in self._targets:
+            # Important to compare strings because targets can be of multiple type (str, pathlib.Path, virtual).
+            if re.fullmatch(str(target), str(other)):
+                return target
+        return None
 
     @property
     def action(self) -> list[str] | tuple[str, list[str], list[str]]:
@@ -227,7 +244,7 @@ class PatternRule(Rule):
         raddix = str(other).replace(prefix, "").replace(suffix, "")
         return pathlib.Path(dep.pattern.replace("*", raddix))
 
-    def match(self, other: pathlib.Path | str) -> list[pathlib.Path]:
+    def match(self, other: pathlib.Path | str) -> tuple[pathlib.Path, list[pathlib.Path]]:
         """Check if `other` matches dependency pattern and is not in exclude list.
         If True, returns corresponding dependencies names.
         Else, returns []."""
@@ -236,7 +253,7 @@ class PatternRule(Rule):
 
         # Check if other is excluded from pattern rule.
         if str(other) in self._exclude:
-            return []
+            return (pathlib.Path(other), [])
 
         ret = []
         assert all(isinstance(_, GlobPattern) for _ in self._targets)
@@ -244,11 +261,13 @@ class PatternRule(Rule):
             for dep in self._deps:
                 ret += [self.instanciate(other, dep)]
 
-        return ret
+        return (pathlib.Path(other), ret)
 
     def expand(self, target: pathlib.Path) -> Rule:
         """Expands pattern rule into named rule according to target's basename
         (e.g., `pdflatex *.tex` into `pdflatex main.tex`)."""
+        print(target)
+        print(self.targetPattern)
         assert target.match(self.targetPattern)
 
         # Computing deps and action string
@@ -277,3 +296,8 @@ class PatternRule(Rule):
 
         suffix = self.targetPattern.replace("*", "")
         return [pathlib.Path(dep).with_suffix(suffix) for dep in allDeps]
+
+
+#TYP_DEP_LIST = list[TYP_PATH | tuple[Union[TYP_PATH, List[TYP_PATH]], Rule]]
+TYP_DEP_LIST = list[tuple[list[TYP_PATH], Rule | None]]
+TYP_DEP_GRAPH = dict[tuple[TYP_PATH, Rule | None], list["TYP_DEP_GRAPH"]]

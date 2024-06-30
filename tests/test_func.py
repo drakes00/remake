@@ -72,8 +72,12 @@ def test_01_funDeps(_=ensureCleanContext):
     r_1 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_1): [VirtualDep("b")]
+         r_1): [{
+            (VirtualDep("b"),
+             None): []
+        }]
     }
+    assert findBuildPath("a") == findBuildPath(VirtualTarget("a"))
     getCurrentContext().clearRules()
 
     # Two files one dependence.
@@ -81,21 +85,38 @@ def test_01_funDeps(_=ensureCleanContext):
     r_2_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_2_1): [VirtualDep("c")]
+         r_2_1): [{
+            (VirtualDep("c"),
+             None): []
+        }]
     }
     assert findBuildPath(VirtualTarget("b")) == {
         (VirtualTarget("b"),
-         r_2_2): [VirtualDep("c")]
+         r_2_2): [{
+            (VirtualDep("c"),
+             None): []
+        }]
     }
+    assert findBuildPath("a") == findBuildPath(VirtualTarget("a"))
+    assert findBuildPath("b") == findBuildPath(VirtualTarget("b"))
     getCurrentContext().clearRules()
 
     # One file two dependencies
     r_3_1 = Rule(targets=VirtualTarget("a"), deps=[VirtualDep("b"), VirtualDep("c")], builder=fooBuilder)
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_3_1): [VirtualDep("b"),
-                  VirtualDep("c")]
+         r_3_1): [
+            {
+                (VirtualDep("b"),
+                 None): []
+            },
+            {
+                (VirtualDep("c"),
+                 None): []
+            },
+        ]
     }
+    assert findBuildPath("a") == findBuildPath(VirtualTarget("a"))
     getCurrentContext().clearRules()
 
     # One file two dependencies with two rules.
@@ -111,10 +132,14 @@ def test_01_funDeps(_=ensureCleanContext):
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
          r_5_1): [{
-            (VirtualDep("b"),
-             r_5_2): [VirtualDep("c")]
+            (VirtualTarget("b"),
+             r_5_2): [{
+                (VirtualDep("c"),
+                 None): []
+            }]
         }]
     }
+    assert findBuildPath("a") == findBuildPath(VirtualTarget("a"))
     getCurrentContext().clearRules()
 
     # Complex
@@ -155,27 +180,46 @@ def test_01_funDeps(_=ensureCleanContext):
          r_6_1):
             [
                 {
-                    (VirtualDep("c"),
+                    (VirtualTarget("c"),
                      r_6_2):
                         [
                             {
-                                (VirtualDep("b1"),
-                                 r_6_3): [VirtualDep("a1")]
+                                (VirtualTarget("b1"),
+                                 r_6_3): [{
+                                    (VirtualDep("a1"),
+                                     None): []
+                                },
+                                         ]
                             },
                             {
-                                (VirtualDep("b2"),
-                                 r_6_4): [VirtualDep("a1"),
-                                          VirtualDep("a2")]
+                                (VirtualTarget("b2"),
+                                 r_6_4): [
+                                    {
+                                        (VirtualDep("a1"),
+                                         None): []
+                                    },
+                                    {
+                                        (VirtualDep("a2"),
+                                         None): []
+                                    },
+                                ]
                             }
                         ]
                 },
-                VirtualDep("a2"),
                 {
-                    (VirtualDep("b1"),
-                     r_6_3): [VirtualDep("a1")]
+                    (VirtualDep("a2"),
+                     None): []
+                },
+                {
+                    (VirtualTarget("b1"),
+                     r_6_3): [{
+                        (VirtualDep("a1"),
+                         None): []
+                    }]
                 }
             ]
     }
+    assert findBuildPath("d") == findBuildPath(VirtualTarget("d"))
     getCurrentContext().clearRules()
 
     # Simple rule with another rule with multiple targets
@@ -194,33 +238,62 @@ def test_01_funDeps(_=ensureCleanContext):
     )
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_8_1): [VirtualDep("c")]
+         r_8_1): [{
+            (VirtualDep("c"),
+             None): []
+        }]
     }
+    assert findBuildPath("a") == findBuildPath(VirtualTarget("a"))
     assert findBuildPath(VirtualTarget("b")) == {
         (VirtualTarget("b"),
-         r_8_1): [VirtualDep("c")]
+         r_8_1): [{
+            (VirtualDep("c"),
+             None): []
+        }]
     }
+    assert findBuildPath("b") == findBuildPath(VirtualTarget("b"))
     assert findBuildPath(VirtualTarget("d")) == {
         (VirtualTarget("d"),
          r_8_2): [
-            VirtualDep("e"),
-            VirtualDep("f"),
+            {
+                (VirtualDep("e"),
+                 None): []
+            },
+            {
+                (VirtualDep("f"),
+                 None): []
+            },
         ]
     }
+    assert findBuildPath("d") == findBuildPath(VirtualTarget("d"))
     assert findBuildPath(VirtualTarget("g")) == {
         (VirtualTarget("g"),
          r_8_3): [
-            VirtualDep("i"),
-            VirtualDep("j"),
+            {
+                (VirtualDep("i"),
+                 None): []
+            },
+            {
+                (VirtualDep("j"),
+                 None): []
+            },
         ]
     }
+    assert findBuildPath("g") == findBuildPath(VirtualTarget("g"))
     assert findBuildPath(VirtualTarget("h")) == {
         (VirtualTarget("h"),
          r_8_3): [
-            VirtualDep("i"),
-            VirtualDep("j"),
+            {
+                (VirtualDep("i"),
+                 None): []
+            },
+            {
+                (VirtualDep("j"),
+                 None): []
+            },
         ]
     }
+    assert findBuildPath("h") == findBuildPath(VirtualTarget("h"))
     getCurrentContext().clearRules()
 
 
@@ -235,11 +308,19 @@ def test_02_funDepsMultipleTimes(_=ensureCleanContext):
     r_2 = Rule(targets=VirtualTarget("b"), deps=VirtualDep("c"), builder=fooBuilder)
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_1): [{
-            (VirtualDep("b"),
-             r_2): [VirtualDep("c")]
-        },
-                VirtualDep("c")]
+         r_1): [
+            {
+                (VirtualTarget("b"),
+                 r_2): [{
+                    (VirtualDep("c"),
+                     None): []
+                }]
+            },
+            {
+                (VirtualDep("c"),
+                 None): []
+            },
+        ]
     }
 
 
@@ -255,11 +336,17 @@ def test_03_funSameRuleTwice(_=ensureCleanContext):
     r_2 = Rule(targets=VirtualTarget("a"), deps=VirtualDep("b"), builder=fooBuilder)
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_1): [VirtualDep("b")]
+         r_1): [{
+            (VirtualDep("b"),
+             None): []
+        }]
     }
     assert findBuildPath(VirtualTarget("a")) == {
         (VirtualTarget("a"),
-         r_2): [VirtualDep("b")]
+         r_2): [{
+            (VirtualDep("b"),
+             None): []
+        }]
     }
 
 
@@ -320,72 +407,96 @@ def test_06_funDepsMultipleTargets(_=ensureCleanContext):
     os.chdir("/tmp")
     fooBuilder = Builder(action="Magically creating $@ from $<")
 
+    # Two deps same rule.
+    r_1 = Rule(targets="a", deps=["b", "c"], builder=fooBuilder)
+    AddTarget("a")
+    assert generateDependencyList() == [
+        ([pathlib.Path("/tmp/c")],
+         None),
+        ([pathlib.Path("/tmp/b")],
+         None),
+        ([pathlib.Path("/tmp/a")],
+         r_1),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
     # Two targets same rule.
-    r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_2 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == [pathlib.Path("/tmp/c"), ([pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")], r_1)]
+    assert generateDependencyList() == [
+        ([pathlib.Path("/tmp/c")],
+         None),
+        ([pathlib.Path("/tmp/a"),
+          pathlib.Path("/tmp/b")],
+         r_2),
+    ]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two targets same rule (no deps).
-    r_2 = Rule(targets=["a", "b"], builder=fooBuilder)
+    r_3 = Rule(targets=["a", "b"], builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
-    assert generateDependencyList() == [([pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")], r_2)]
+    assert generateDependencyList() == [([pathlib.Path("/tmp/a"), pathlib.Path("/tmp/b")], r_3)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Three targets same rule.
-    r_3 = Rule(targets=["a", "b", "c"], deps="d", builder=fooBuilder)
+    r_4 = Rule(targets=["a", "b", "c"], deps="d", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
     AddTarget("c")
     assert generateDependencyList() == [
-        pathlib.Path("/tmp/d"),
+        ([pathlib.Path("/tmp/d")],
+         None),
         ([pathlib.Path("/tmp/a"),
           pathlib.Path("/tmp/b"),
           pathlib.Path("/tmp/c")],
-         r_3)
+         r_4)
     ]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two targets two same rules.
-    r_4_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    r_4_2 = Rule(targets=["d", "e"], deps="f", builder=fooBuilder)
+    r_5_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_5_2 = Rule(targets=["d", "e"], deps="f", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
     AddTarget("d")
     AddTarget("e")
     assert generateDependencyList() == [
-        pathlib.Path("/tmp/c"),
+        ([pathlib.Path("/tmp/c")],
+         None),
         ([pathlib.Path("/tmp/a"),
           pathlib.Path("/tmp/b")],
-         r_4_1),
-        pathlib.Path("/tmp/f"),
+         r_5_1),
+        ([pathlib.Path("/tmp/f")],
+         None),
         ([pathlib.Path("/tmp/d"),
           pathlib.Path("/tmp/e")],
-         r_4_2)
+         r_5_2)
     ]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
     # Two levels.
-    r_5_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
-    r_5_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
+    r_6_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
+    r_6_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
     AddTarget("a")
     AddTarget("b")
     AddTarget("d")
     AddTarget("e")
     assert generateDependencyList() == [
-        pathlib.Path("/tmp/c"),
+        ([pathlib.Path("/tmp/c")],
+         None),
         ([pathlib.Path("/tmp/a"),
           pathlib.Path("/tmp/b")],
-         r_5_1),
+         r_6_1),
         ([pathlib.Path("/tmp/d"),
           pathlib.Path("/tmp/e")],
-         r_5_2)
+         r_6_2)
     ]
 
 
@@ -428,7 +539,7 @@ def test_08_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
 
     r_1 = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
     AddTarget(TMP_FILE)
-    assert buildDeps(generateDependencyList()) == [(pathlib.Path(TMP_FILE), r_1)]
+    assert buildDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
     assert os.path.isfile(TMP_FILE)
-    assert cleanDeps(generateDependencyList()) == [(pathlib.Path(TMP_FILE), r_1)]
+    assert cleanDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
     assert not os.path.isfile(TMP_FILE)

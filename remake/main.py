@@ -8,8 +8,10 @@ import pathlib
 import re
 import shutil
 import sys
+import json
 
 from collections import deque
+from itertools import chain
 from rich.progress import Progress
 from rich.console import Console
 from typeguard import typechecked
@@ -17,13 +19,11 @@ from typing import Dict, List, Tuple, Union
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, Context
 from remake.context import isDryRun, isDevTest, isClean, setVerbose, setDryRun, setClean
-from remake.paths import VirtualTarget, VirtualDep
-from remake.builders import Builder  # Import needed to avoid imports in ReMakeFile
-from remake.rules import Rule, PatternRule
+from remake.paths import VirtualTarget, VirtualDep, TYP_PATH_LOOSE
+from remake.rules import TYP_DEP_LIST, TYP_DEP_GRAPH, PatternRule
 
-TYP_PATH = Union[pathlib.Path, VirtualTarget, VirtualDep]
-TYP_DEP_LIST = List[Union[TYP_PATH, Tuple[Union[TYP_PATH, List[TYP_PATH]], Rule]]]
-TYP_DEP_GRAPH = Union[TYP_PATH, Dict[Tuple[TYP_PATH, Rule], List["TYP_DEP_GRAPH"]]]
+from remake.builders import Builder  # Import needed to avoid imports in ReMakeFile
+from remake.rules import Rule  # Import needed to avoid imports in ReMakeFile
 
 
 @typechecked
@@ -52,7 +52,11 @@ class SubReMakeDir:
 
 
 @typechecked
-def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", targets: list | None = None) -> Context:
+def executeReMakeFileFromDirectory(
+    cwd: str,
+    configFile: str = "ReMakeFile",
+    targets: list[TYP_PATH_LOOSE] | None = None
+) -> Context:
     """Loads ReMakeFile from current directory in a new context and builds associated targets."""
     absCwd = os.path.abspath(cwd)
     addContext(absCwd)
@@ -60,8 +64,6 @@ def executeReMakeFileFromDirectory(cwd: str, configFile: str = "ReMakeFile", tar
     os.chdir(absCwd)
 
     loadScript(configFile)
-    if targets:
-        targets = parseTargets(targets)
     deps = generateDependencyList(targets)
     executedRules = []
     if isClean() and deps:
@@ -90,20 +92,7 @@ def loadScript(configFile: str = "ReMakeFile") -> None:
 
 
 @typechecked
-def parseTargets(targets: list[str]) -> list[TYP_PATH]:
-    """Parses the list of target to build and matches them to registered targets and virtual targets."""
-    ret = []
-    registeredTargets = getCurrentContext().targets
-    for target in targets:
-        for registeredTarget in registeredTargets:
-            if isinstance(registeredTarget, VirtualTarget) and registeredTarget.matches(target):
-                ret += [registeredTarget]
-
-    return ret
-
-
-@typechecked
-def generateDependencyList(targets: list[TYP_PATH] | None = None) -> TYP_DEP_LIST:
+def generateDependencyList(targets: list[TYP_PATH_LOOSE] | None = None) -> TYP_DEP_LIST:
     """Generates and sorts dependency list."""
     deps = []
     if targets is None:
@@ -118,38 +107,38 @@ def generateDependencyList(targets: list[TYP_PATH] | None = None) -> TYP_DEP_LIS
 
 
 @typechecked
-def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
+def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
     """Constructs dependency graph from registered rules."""
     depNames = []
     foundRule = None
+    # breakpoint()
 
     # Iterate over all contexts from the current context (leaf) to the parents (root).
     for context in reversed(getContexts()):
         # For each context, look for matching rules.
         namedRules, patternRules = context.rules
+        matchedTarget = None
         # First with named rules that will directly match the target.
         for rule in namedRules:
-            for ruleTarget in rule.targets:
-                # Important to compare strings because targets can be of multiple type (str, pathlib.Path, virtual).
-                if re.fullmatch(str(ruleTarget), str(target)):
-                    # Target found in rule's target.
-                    depNames += rule.deps
-                    foundRule = rule
-                    break
+            matchedTarget = rule.match(target)
+            if matchedTarget:
+                # Target found in rule's target.
+                depNames += rule.deps
+                foundRule = rule
+                break
 
         # Stopping here as named rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
-            depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
             return {
-                (target,
+                (matchedTarget,
                  foundRule): depNames
             }
 
         foundRule = None
         # Then with pattern rules that are generic.
         for rule in patternRules:
-            depNames = rule.match(str(target))
+            matchedTarget, depNames = rule.match(target)
             if depNames:
                 # Since rule was an anonymous rule (with *),
                 # Expanding the rule to generate deps file names within match method.
@@ -159,9 +148,8 @@ def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
         # Stopping here as pattern rule was found.
         if foundRule is not None:
             depNames = [findBuildPath(dep) for dep in depNames]
-            depNames = [ii for n, ii in enumerate(depNames) if ii not in depNames[:n]]
             return {
-                (target,
+                (matchedTarget,
                  foundRule): depNames
             }
 
@@ -171,13 +159,22 @@ def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
         if isClean():
             # We are attempting to clean an existing target no linked to any rule.
             # We thus found a ground dependency that we really don't want to erase.
-            return target
+            return {
+                (target,
+                 None): []
+            }
         elif isDryRun():
             # If we are in dry run mode, just assume it's OK.
-            return target
+            return {
+                (target,
+                 None): []
+            }
         else:
             # If the file exists while in build mode, then job is done.
-            return target
+            return {
+                (target,
+                 None): []
+            }
 
     else:
         if isClean():
@@ -185,11 +182,18 @@ def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
             # This is not supposed to happen.
             raise ValueError
         elif isDryRun():
-            # If we are in dev mode, deps might not exit, just assume it's OK.
-            return target
+            # If we are in dry run mode, deps might not exist, just assume it's OK.
+            ret = VirtualDep(target) if isinstance(target, str) else target
+            return {
+                (ret,
+                 None): []
+            }
         elif isinstance(target, (VirtualTarget, VirtualDep)):
             # Target is virtual and is not supposed to be a file, just assume it's OK.
-            return target
+            return {
+                (target,
+                 None): []
+            }
         else:
             # However, if in build mode, no rule was found to make target!
             Console().print(f"[[bold red]STOP[/]] No rule to make {target}")
@@ -203,17 +207,21 @@ def sortDeps(deps: List[TYP_DEP_GRAPH]) -> TYP_DEP_LIST:
     tmpQueue = deque()
     ret = deque()
 
+    # Start with last dep.
     for dep in deps[::-1]:
         tmpQueue.append(dep)
 
         while tmpQueue:
             node = tmpQueue.popleft()
-            if isinstance(node, pathlib.Path):
-                ret.appendleft(node)
-            elif isinstance(node, dict):
-                ret.appendleft(list(node.keys())[0])
-                for ruleDep in list(node.values())[0]:
-                    tmpQueue.append(ruleDep)
+            key, values = list(node.items())[0]
+            path, rule = key
+
+            # Make each dependencies a list
+            ret.appendleft(([path], rule))
+
+            # And iterate for sub=dependencies
+            for ruleDep in values:
+                tmpQueue.append(ruleDep)
 
     return list(ret)
 
@@ -227,6 +235,8 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         if len(origDeps) < 2:
             return origDeps
 
+        # breakpoint()
+
         # We will remove items from deps as we process the list so let's make a copy first.
         deps = origDeps.copy()
 
@@ -237,18 +247,17 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
             target = deps[-1]
             lhsDeps = deps[:-1]
 
-            if isinstance(target, tuple):
+            if target[1] is not None:
                 # If target is a tuple, there is a rule associated.
                 # Find all other targets that share the same rule.
-                otherTargets = list(filter(lambda _: isinstance(_, tuple) and _[1] == target[1], lhsDeps))
+                otherTargets = list(filter(lambda _: _[1] == target[1], lhsDeps))
                 if otherTargets:
                     # If there are other targets, merge them.
-                    allTargetsSameRule = [_[0] for _ in otherTargets] + [target[0]]
+                    allTargetsSameRule = list(chain.from_iterable([_[0] for _ in otherTargets])) + target[0]
                     allTargetsSameRule = list(
                         i for (n,
                                i) in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
                     )
-                    allTargetsSameRule = allTargetsSameRule[0] if len(allTargetsSameRule) == 1 else allTargetsSameRule
                     ret += [(allTargetsSameRule, target[1])]
                     for otherTarget in otherTargets:
                         deps.remove(otherTarget)
@@ -281,8 +290,10 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
         return ret
 
-    deps = _mergeTargetsSameRule(deps)
+    # from rich.pretty import pprint
+    # pprint(deps)
     deps = _removeDuplicatesWithNoRules(deps)
+    deps = _mergeTargetsSameRule(deps)
     return deps
 
 
@@ -305,19 +316,17 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
-            if isinstance(dep, pathlib.Path):
+            target, rule = dep
+            if rule is None:
                 # Ground dependency (tree leaf).
                 # Let's not delete a ground dependency.
                 progress.advance(task)
-            elif isinstance(dep, tuple):
-                target, rule = dep
+            else:
+                targets, rule = dep
                 if isinstance(rule, PatternRule):
                     rule = rule.expand(dep[0])
 
-                if isinstance(target, tuple):
-                    for tmp in target:
-                        _cleanDep(tmp)
-                else:
+                for target in targets:
                     _cleanDep(target)
                 progress.advance(task)
 
@@ -334,41 +343,44 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
         )
         task = progress.add_task("ReMakeFile steps", total=len(deps))
         for job, dep in enumerate(deps):
-            if isinstance(dep, pathlib.Path):
+            targets, rule = dep
+            if rule is None:
                 # Ground dependency (tree leaf).
-                if isDryRun():
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {dep}"
-                    )
-                elif os.path.exists(dep):
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {dep} already exists."
-                    )
-                else:
-                    progress.console.print(
-                        f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{dep}[/light_slate_blue]! Aborting!"
-                    )
-                    raise FileNotFoundError
-                progress.advance(task)
-            elif isinstance(dep, tuple):
+                for target in targets:
+                    if isDryRun():
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target}"
+                        )
+                    elif isinstance(target, pathlib.Path) and os.path.exists(target):
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {target} already exists."
+                        )
+                    else:
+                        progress.console.print(
+                            f"[[red bold]FAILED[/red bold]] Unable to find build path for [light_slate_blue]{target}[/light_slate_blue]! Aborting!"
+                        )
+                        raise FileNotFoundError
+            else:
                 # Dependency with a rule, need to apply the rule.
-                target, rule = dep
-                if isinstance(rule, PatternRule):
-                    rule = rule.expand(dep[0])
+                targets, rule = dep
+                rulesSuccess = []
+                for target in targets:
+                    if isinstance(rule, PatternRule):
+                        rule = rule.expand(target)
 
-                if isDryRun():
-                    progress.console.print(
-                        f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.actionName}"
-                    )
-                    # Keep track of the rules applied for return.
-                    rulesApplied += [(target, rule)]
-                else:
-                    progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
-                    if rule.apply(progress):
-                        # Keep track of the rules applied for return.
-                        rulesApplied += [(target, rule)]
+                    if isDryRun():
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]DRY-RUN[/bold plum1]] Dependency: {target} built with rule: {rule.actionName}"
+                        )
+                    else:
+                        progress.console.print(f"[{job+1}/{len(deps)}] {rule.actionName}")
+                        res = rule.apply(progress)
+                        rulesSuccess += [res]
 
-                progress.advance(task)
+                # Keep track of the rules applied for return.
+                if isDryRun() or (rulesSuccess and all(rulesSuccess)):
+                    rulesApplied += [(targets, rule)]
+            progress.advance(task)
 
     return rulesApplied
 

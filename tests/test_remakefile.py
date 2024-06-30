@@ -80,7 +80,6 @@ AddTarget("d.foo")
         handle.write(ReMakeFile)
 
     setDryRun()
-    setDevTest()
     context = executeReMakeFileFromDirectory("/tmp")
     named, pattern = context.rules
     targets = context.targets
@@ -536,7 +535,7 @@ def test_10_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
     assert buildDeps(generateDependencyList()) == []
     time.sleep(0.01)
     pathlib.Path("/tmp/b").touch()
-    assert buildDeps(generateDependencyList()) == [(pathlib.Path("/tmp/a"), r_3)]
+    assert buildDeps(generateDependencyList()) == [([pathlib.Path("/tmp/a")], r_3)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -557,11 +556,11 @@ AddTarget("a")
     pathlib.Path("/tmp/b").touch()
     context = executeReMakeFileFromDirectory("/tmp")
     r_4 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert context.executedRules == [(pathlib.Path("/tmp/a"), r_4)]
+    assert context.executedRules == [([pathlib.Path("/tmp/a")], r_4)]
 
 
 @test("Detection of newer dep of dep (3 levels) to rebuild target")
-def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_11_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Detection of newer dep of dep (3 levels) to rebuild target"""
 
     os.chdir("/tmp")
@@ -632,7 +631,7 @@ def test_19_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp
     # Here: c more recent than a more recent than b.
     # Since dependency graph will first try to build b and c is more recent than b, b will be built.
     # Then since b just got built, b is more recent than a, and a will be built.
-    assert buildDeps(generateDependencyList()) == [(pathlib.Path("/tmp/b"), r_3_1), (pathlib.Path("/tmp/a"), r_3_2)]
+    assert buildDeps(generateDependencyList()) == [([pathlib.Path("/tmp/b")], r_3_1), ([pathlib.Path("/tmp/a")], r_3_2)]
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
 
@@ -666,28 +665,220 @@ AddTarget("a")
     context = executeReMakeFileFromDirectory("/tmp")
     r_4_1 = Rule(targets="b", deps="c", builder=touchBuilder)
     r_4_2 = Rule(targets="a", deps="b", builder=touchBuilder)
-    assert context.executedRules == [(pathlib.Path("/tmp/b"), r_4_1), (pathlib.Path("/tmp/a"), r_4_2)]
+    assert context.executedRules == [([pathlib.Path("/tmp/b")], r_4_1), ([pathlib.Path("/tmp/a")], r_4_2)]
 
 
-@skip
 @test("Making specific targets")
-def test_20_specificTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_12_specificTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Making specific targets"""
 
     ReMakeFile = """
-fooBuilder = Builder(action="Magically creating $@ from $<")
-Rule(targets="a", deps=["c", "a2", "b1"], builder=fooBuilder)
-Rule(targets="c", deps=["b1", "b2"], builder=fooBuilder)
-Rule(targets="b1", deps=["a1"], builder=fooBuilder)
-Rule(targets="b2", deps=["a1", "a2"], builder=fooBuilder)
-PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
-AddTarget("d")
-AddTarget("d.foo")
+touchBuilder = Builder(action="touch $@")
+Rule(targets="d", deps=["c", "a2", "b1"], builder=touchBuilder)
+Rule(targets="c", deps=["b1", "b2"], builder=touchBuilder)
+Rule(targets="b1", deps=["a1"], builder=touchBuilder)
+Rule(targets="b2", deps=["a1", "a2"], builder=touchBuilder)
+PatternRule(target="*.foo", deps="*.bar", builder=touchBuilder)
+PatternRule(target="*.bar", deps="*.baz", builder=touchBuilder)
+Rule(targets="e", deps=["f", "g"], builder=touchBuilder)  
+Rule(targets="f", deps=["f1", "f2"], builder=touchBuilder)
+PatternRule(target="*.alpha", deps="*.beta", builder=touchBuilder)
+PatternRule(target="*.beta", deps="*.gamma", builder=touchBuilder)
 """
     with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
         handle.write(ReMakeFile)
 
     setDryRun()
-    setDevTest()
-    context = executeReMakeFileFromDirectory("/tmp", targets=[VirtualTarget("c"), VirtualTarget("b1")])
-    assert False, context.executedRules
+
+    touchBuilder = Builder(action="touch $@")
+    r_1 = Rule(targets="d", deps=["c", "a2", "b1"], builder=touchBuilder)
+    r_2 = Rule(targets="c", deps=["b1", "b2"], builder=touchBuilder)
+    r_3 = Rule(targets="b1", deps=["a1"], builder=touchBuilder)
+    r_4 = Rule(targets="b2", deps=["a1", "a2"], builder=touchBuilder)
+    r_5 = PatternRule(target="*.foo", deps="*.bar", builder=touchBuilder)
+    r_6 = PatternRule(target="*.bar", deps="*.baz", builder=touchBuilder)
+    Rule(targets="e", deps=["f", "g"], builder=touchBuilder)
+    r_7 = Rule(targets="f", deps=["f1", "f2"], builder=touchBuilder)
+    PatternRule(target="*.alpha", deps="*.beta", builder=touchBuilder)
+    r_8 = PatternRule(target="*.beta", deps="*.gamma", builder=touchBuilder)
+
+    # First with final targets.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/d"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1)
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.foo"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo')))
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # With intermediate targets.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/c"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2)
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.bar"])
+    assert context.executedRules == [([pathlib.Path("/tmp/test.bar")], r_6.expand(pathlib.Path("/tmp/test.bar")))]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # With unknown targets.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/unknown"])
+    assert context.executedRules == []
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.unknown"])
+    assert context.executedRules == []
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Mixed (final and non-related intermediate) in both orders.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/d", "/tmp/f"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+        ([pathlib.Path("/tmp/f")],
+         r_7),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.foo", "/tmp/test.beta"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+        ([pathlib.Path('/tmp/test.beta')],
+         r_8.expand(pathlib.Path('/tmp/test.beta'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/f", "/tmp/d"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/f")],
+         r_7),
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.beta", "/tmp/test.foo"])
+    assert context.executedRules == [
+        ([pathlib.Path('/tmp/test.beta')],
+         r_8.expand(pathlib.Path('/tmp/test.beta'))),
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Mixed (final and related intermediate) in both orders.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/d", "/tmp/c"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.foo", "/tmp/test.bar"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/c", "/tmp/d"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.bar", "/tmp/test.foo"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Mixed (any correct target with unkown) in both orders.
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/d", "/tmp/unkown"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.foo", "/tmp/test.unknown"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/unknown", "/tmp/d"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/b2")],
+         r_4),
+        ([pathlib.Path("/tmp/b1")],
+         r_3),
+        ([pathlib.Path("/tmp/c")],
+         r_2),
+        ([pathlib.Path("/tmp/d")],
+         r_1),
+    ]
+    context = executeReMakeFileFromDirectory("/tmp", targets=["/tmp/test.unknown", "/tmp/test.foo"])
+    assert context.executedRules == [
+        ([pathlib.Path("/tmp/test.bar")],
+         r_6.expand(pathlib.Path("/tmp/test.bar"))),
+        ([pathlib.Path('/tmp/test.foo')],
+         r_5.expand(pathlib.Path('/tmp/test.foo'))),
+    ]
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # TODO VirtualTarget

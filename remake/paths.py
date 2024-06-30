@@ -17,6 +17,9 @@ class VirtualTarget():
     def __str__(self):
         return self._name
 
+    def __repr__(self):
+        return super().__repr__() + f"(name={self._name})"
+
     def __hash__(self):
         return hash(self._name)
 
@@ -38,6 +41,9 @@ class VirtualDep():
 
     def __str__(self):
         return self._name
+
+    def __repr__(self):
+        return super().__repr__() + f"(name={self._name})"
 
     def __hash__(self):
         return hash(self._name)
@@ -96,3 +102,9 @@ def shouldRebuild(target: VirtualTarget | pathlib.Path, deps: list[VirtualDep | 
 
     # All deps are older than target, no need for rebuild.
     return False
+
+
+TYP_TARGET = pathlib.Path | VirtualTarget | str
+TYP_DEP = pathlib.Path | VirtualDep | str
+TYP_PATH = pathlib.Path | VirtualTarget | VirtualDep
+TYP_PATH_LOOSE = TYP_PATH | str
