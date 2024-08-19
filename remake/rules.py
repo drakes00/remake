@@ -266,12 +266,10 @@ class PatternRule(Rule):
     def expand(self, target: pathlib.Path) -> Rule:
         """Expands pattern rule into named rule according to target's basename
         (e.g., `pdflatex *.tex` into `pdflatex main.tex`)."""
-        print(target)
-        print(self.targetPattern)
         assert target.match(self.targetPattern)
 
         # Computing deps and action string
-        # TODO Would be nice to remember target and deps position in builder's acition and replace them at the latest.
+        # TODO Would be nice to remember target and deps position in builder's action and replace them at the latest.
         deps = [target.with_suffix(dep.suffix) for dep in self._deps]
         if isinstance(self.action, list):
             action = []

@@ -234,8 +234,6 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         if len(origDeps) < 2:
             return origDeps
 
-        # breakpoint()
-
         # We will remove items from deps as we process the list so let's make a copy first.
         deps = origDeps.copy()
 
@@ -351,6 +349,10 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
                     elif isinstance(target, pathlib.Path) and os.path.exists(target):
                         progress.console.print(
                             f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Dependency {target} already exists."
+                        )
+                    elif isinstance(target, (VirtualTarget, VirtualDep)):
+                        progress.console.print(
+                            f"[{job+1}/{len(deps)}] [[bold plum1]SKIP[/bold plum1]] Virtual dependency: {target}"
                         )
                     else:
                         progress.console.print(
