@@ -9,7 +9,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from ward import test, fixture, raises, xfail
+from ward import test, fixture, raises, skip
 
 from remake import Builder, Rule, VirtualDep, VirtualTarget
 from remake import getCurrentContext
@@ -430,14 +430,98 @@ def test_09_moveDirectoryOperations(_=setupTestCopyMove):
         _doMove(source, destination)
 
 
-@test("Basic remove operations.")
-@xfail
-def test_removeFileOperations():
-    """Basic remove operations."""
-    raise NotImplementedError
-    # === Remove ===
-    # Files (single, multiple, non-existant)
-    # Directorie (single, multiple, non-existant, not empty)
+@test("Basic file remove operations.")
+def test_10_removeFileOperations(_=setupTestCopyMove):
+    """Basic file remove operations."""
+    def _doRemove(targets):
+        getCurrentContext().clearRules()
+        Rule(targets=targets, builder=rm).apply()
+        getCurrentContext().clearRules()
+
+    test_file_1 = Path("test_file_1.txt")
+    test_file_2 = Path("test_file_2.txt")
+    test_dir_1 = Path("test_dir_1")
+    test_dir_2 = Path("test_dir_2")
+    test_file_3 = test_dir_1 / "test_file_3.txt"
+
+    # Single file
+    target = test_file_1
+    _doRemove(target)
+    assert target.exists() is False
+
+    # Multiple files
+    targets = [test_file_2, test_file_3]
+    _doRemove(targets)
+    for target in targets:
+        assert target.exists() is False
+    assert test_dir_1.exists()
+
+    # Attempt to remove a non-existent file
+    target = Path("nonexistent_file.txt")
+    assert target.exists() is False
+    _doRemove(target)
+    assert target.exists() is False
+
+    # Attempt to remove files from a non-existent directory
+    target = Path("nonexistent_dir/nonexistent_file.txt")
+    assert target.exists() is False
+    _doRemove(target)
+    assert target.exists() is False
+
+
+@test("Basic directory remove operations.")
+def test_XX_removeDirectoryOperations(_=setupTestCopyMove):
+    """Basic directory remove operations."""
+    def _doRemove(targets, recursive=False):
+        getCurrentContext().clearRules()
+        Rule(targets=targets, builder=rm, recursive=recursive).apply()
+        getCurrentContext().clearRules()
+
+    test_dir_1 = Path("test_dir_1")
+    test_dir_2 = Path("test_dir_2")
+    test_dir_3 = Path("test_dir_3")
+    test_dir_4 = Path("test_dir_4")
+    test_file_1 = Path("test_file_1.txt")
+    test_file_2 = Path("test_file_2.txt")
+
+    # Single empty directory
+    target = test_dir_2
+    _doRemove(target)
+    assert target.exists() is False
+
+    # Multiple empty directories
+    targets = [test_dir_3, test_dir_4]
+    _doRemove(targets)
+    assert all([_.exists() is False for _ in targets])
+
+    # Multiple files and empty directories
+    targets = [test_file_2, test_dir_4]
+    _doRemove(targets)
+    assert all([_.exists() is False for _ in targets])
+
+    # Attempt to remove a non-existent directory
+    target = Path("nonexistent_dir")
+    _doRemove(target)
+    assert target.exists() is False
+
+    # Attempt to remove a non-empty directory
+    target = test_dir_1
+    with raises(OSError):
+        _doRemove(target)
+    assert target.exists() is True
+
+    # Force remove a non-empty directory
+    target = test_dir_1
+    _doRemove(target, recursive=True)
+    assert target.exists() is False
+
+    # Partially existing multiple targets
+    existing_target = test_dir_1
+    non_existing_target = Path("nonexistent_dir")
+    assert non_existing_target.exists() is False
+    targets = [existing_target, non_existing_target]
+    _doRemove(targets)
+    assert all([_.exists() is False for _ in targets])
 
 
 @test("Basic tar operations - single file")
@@ -476,37 +560,38 @@ def test_10_tarSingleFile(_=setupTestCopyMove):
 
 
 @test("Basic tar operations - single file with rename")
-@xfail
+@skip
 def test_11_tarSingleFileRename(_=setupTestCopyMove):
     """Creates a tar archive from a single file with a custom name in the archive."""
+    # Currently no way to specify a name in the archive.
     raise NotImplementedError
     # def _doTar(src, dst):
     #     getCurrentContext().clearRules()
     #     Rule(deps=src, targets=dst, builder=tar).apply()
     #     getCurrentContext().clearRules()
-
+    #
     # test_file_1 = Path("test_file_1.txt")
+    # test_file_1_arcname = Path("awesome_file_1.txt")
     # test_archive = Path("archive.tar")
-
+    #
     # # Create the source file
     # with open(test_file_1, "w", encoding="utf-8") as f:
     #     f.write("This is a test file.")
-
-    # # Will fail here, currently no way to pass no name inside rule structure.
-    # _doTar((test_file_1, "custom_name_in_tar.txt"), test_archive)
-
+    #
+    # _doTar((test_file_1, test_file_1_arcname), test_archive)
+    #
     # # Verify the archive exists
     # assert test_archive.exists() is True
-
+    #
     # # Extract the archive and verify content
     # with tarfile.open(test_archive, encoding="utf-8") as tarball:
     #     tarball.extractall()
-    # with open("custom_name.txt", "r", encoding="utf-8") as f:
+    # with open(test_file_1_arcname, "r", encoding="utf-8") as f:
     #     content = f.read()
     # assert content == "This is a test file."
-
+    #
     # # Clean up
-    # os.remove("custom_name.txt")
+    # os.remove(test_file_1_arcname)
     # os.remove(test_archive)
 
 
@@ -714,37 +799,38 @@ def test_17_zipSingleFile(_=setupTestCopyMove):
 
 
 @test("Basic zip operations - single file with rename")
-@xfail
+@skip
 def test_18_zipSingleFileRename(_=setupTestCopyMove):
     """Creates a zip archive from a single file with a custom name in the archive."""
+    # Currently no way to specify a name in the archive.
     raise NotImplementedError
     # def _doZip(src, dst):
     #     getCurrentContext().clearRules()
     #     Rule(deps=src, targets=dst, builder=zip).apply()
     #     getCurrentContext().clearRules()
-
+    #
     # test_file_1 = Path("test_file_1.txt")
+    # test_file_1_arcname = Path("awesome_file_1.txt")
     # test_archive = Path("archive.zip")
-
+    #
     # # Create the source file
     # with open(test_file_1, "w", encoding="utf-8") as f:
     #     f.write("This is a test file.")
-
-    # # Will fail here, currently no way to pass no name inside rule structure.
-    # _doZip((test_file_1, "custom_name_in_zip.txt"), test_archive)
-
+    #
+    # _doZip((test_file_1, test_file_1_arcname), test_archive)
+    #
     # # Verify the archive exists
     # assert test_archive.exists() is True
-
+    #
     # # Extract the archive and verify content
-    # with zipfile.ZipFile(test_archive) as zipball:
+    # with zipfile.open(test_archive, encoding="utf-8") as zipball:
     #     zipball.extractall()
-    # with open("custom_name.txt", "r", encoding="utf-8") as f:
+    # with open(test_file_1_arcname, "r", encoding="utf-8") as f:
     #     content = f.read()
     # assert content == "This is a test file."
-
+    #
     # # Clean up
-    # os.remove("custom_name.txt")
+    # os.remove(test_file_1_arcname)
     # os.remove(test_archive)
 
 

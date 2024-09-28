@@ -22,6 +22,7 @@ class Builder():
     """Generic builder class."""
     _action = None
     _shouldRebuild = None
+    _destructive = None
 
     def __init__(
         self,
@@ -33,12 +34,14 @@ class Builder():
         shouldRebuildFun: Callable[[VirtualTarget | pathlib.Path,
                                     list[VirtualDep | pathlib.Path]],
                                    bool] | None = None,
+        destructive: bool = False,
     ):
         if isinstance(action, str):
             self._action = action.split(" ")
         else:
             self._action = action
         self._shouldRebuild = shouldRebuildFun
+        self._destructive = destructive
         if not ephemeral:
             self._register()
 
@@ -95,6 +98,11 @@ class Builder():
         """Returns buider's custom shouldRebuild function."""
         return self._shouldRebuild
 
+    @property
+    def isDestructive(self):
+        """Returns True if the builder is destructive (will remove target instead of creating it)."""
+        return self._destructive
+
 
 # ==================================================
 # =              File Operations                   =
@@ -116,7 +124,7 @@ def _FILE_OPS_shouldRebuild(target, deps):
     return shouldRebuild(target, [dep])
 
 
-# Expects either :
+# Expects either:
 #   - 2 arguments (source, destination):
 #       - If source is a file and dest does not exists -> Ok, rename as dest
 #       - If source is a file and dest exists and is a file -> Ok, override
@@ -151,11 +159,10 @@ def _cp(deps, targets, _):
         elif dep.is_dir() and not target.exists():
             shutil.copytree(dep, target)
 
-
 cp = Builder(action=_cp, shouldRebuildFun=_FILE_OPS_shouldRebuild)
 
 
-# Expects either :
+# Expects either:
 #   - 2 arguments (source, destination):
 #       - If source is a file and dest does not exists -> Ok, rename as dest
 #       - If source is a file and dest exists and is a file -> Ok, override
@@ -175,15 +182,34 @@ def _mv(deps, targets, _):
     for dep in deps:
         shutil.move(dep, targets[0])
 
-
 mv = Builder(action=_mv, shouldRebuildFun=_FILE_OPS_shouldRebuild)
 
 
-def _rm(deps, targets, _):
-    raise NotImplementedError
+def _FILE_OPS_rmShouldRebuild(target, _):
+    if isinstance(target, VirtualTarget):
+        return True
+    else:
+        return target.exists()
 
 
-rm = Builder(action=_rm)
+# Expects:
+#   - One or more arguments to be removed:
+#       - If the argument does not exists -> KO, but continue for others
+#       - If the argument is a file and exists -> Ok, remove it
+#       - If the argument is a dir and exists -> Ok, but only if the recursive flag is set
+def _rm(deps, targets, _, recursive=None):
+    for target in targets:
+        if target.is_file():
+            target.unlink()
+        elif target.is_dir():
+            if recursive:
+                shutil.rmtree(target)
+            else:
+                target.rmdir()
+        else:
+            pass
+
+rm = Builder(action=_rm, shouldRebuildFun=_FILE_OPS_rmShouldRebuild, destructive=True)
 
 # ==================================================
 # =                 Archives                       =
@@ -196,7 +222,6 @@ def _tar(deps, targets, _, compression=""):
     with tarfile.open(targets[0], mode, encoding="utf-8") as tar:
         for dep in deps:
             tar.add(dep.relative_to(cwd))
-
 
 tar = Builder(action=_tar)
 
@@ -212,7 +237,6 @@ def _zip(deps, targets, _):
             else:
                 zip.write(dep.relative_to(cwd))
 
-
 zip = Builder(action=_zip)
 
 # ==================================================
@@ -227,7 +251,6 @@ def _tex2pdf(deps, _, _2, cmd="pdflatex"):
     subprocess.run([cmd, latexFile], check=True)
     subprocess.run([cmd, latexFile], check=True)
 
-
 tex2pdf = Builder(action=_tex2pdf)
 
 # ==================================================
@@ -238,13 +261,11 @@ tex2pdf = Builder(action=_tex2pdf)
 def _gcc(_, targets, _2, cflags=""):
     subprocess.run(["gcc", cflags, "-o", targets[0]], check=True)
 
-
 gcc = Builder(action=_gcc)
 
 
 def _clang(_, targets, _2, cflags=""):
     subprocess.run(["clang", cflags, "-o", targets[0]], check=True)
-
 
 clang = Builder(action=_clang)
 

@@ -146,11 +146,18 @@ class Rule():
         else:
             self._builder.action(self._deps, self._targets, console, **self._kwargs)
 
-        # If we are not in dry run mode, ensure targets were made after the rule is applied.
+        # If we are not in dry run mode,
         if not isDryRun():
-            for target in self._targets:
-                if not isinstance(target, VirtualTarget) and not (os.path.isfile(target) or os.path.isdir(target)):
-                    raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
+            if self._builder.isDestructive:
+                # If builder is destructive, ensure targets are properly destroyed.
+                for target in self._targets:
+                    if not isinstance(target, VirtualTarget) and (os.path.isfile(target) or os.path.isdir(target)):
+                        raise FileNotFoundError(f"Target {target} not destroyed by rule `{self.actionName}`")
+            else:
+                # If builder is creative, ensure targets were made after the rule is applied.
+                for target in self._targets:
+                    if not isinstance(target, VirtualTarget) and not (os.path.isfile(target) or os.path.isdir(target)):
+                        raise FileNotFoundError(f"Target {target} not created by rule `{self.actionName}`")
 
         return True
 
