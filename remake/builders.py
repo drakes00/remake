@@ -118,6 +118,9 @@ def _FILE_OPS_shouldRebuild(target, deps):
         return ret
 
     dep = deps[0]
+    if (dep.is_file() and target.is_dir()) or (dep.is_dir() and target.is_file()):
+        return True
+
     if target.is_dir():
         target = target / dep.name
 
@@ -187,7 +190,7 @@ mv = Builder(action=_mv, shouldRebuildFun=_FILE_OPS_shouldRebuild)
 
 def _FILE_OPS_rmShouldRebuild(target, _):
     if isinstance(target, VirtualTarget):
-        return True
+        return False
     else:
         return target.exists()
 

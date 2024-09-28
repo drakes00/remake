@@ -228,6 +228,7 @@ def test_06_copyDirectoryOperations(_=setupTestCopyMove):
     test_dir_1 = Path("test_dir_1")
     test_dir_2 = Path("test_dir_2")
     test_dir_3 = Path("test_dir_3")
+    test_file_1 = Path("test_file_1.txt")
     test_file_3 = test_dir_1 / "test_file_3.txt"
 
     # Single directory
@@ -269,6 +270,12 @@ def test_06_copyDirectoryOperations(_=setupTestCopyMove):
     source = "nonexistent_dir"
     destination = test_dir_2 / "copied_dir"
     with raises(FileNotFoundError):
+        _doCopy(source, destination)
+
+    # Attempt to copy a directory over an existing file as destination.
+    source = test_dir_1
+    destination = test_file_1
+    with raises(ValueError):
         _doCopy(source, destination)
 
     # Non-existent destination directory
@@ -449,6 +456,9 @@ def test_10_removeFileOperations(_=setupTestCopyMove):
     _doRemove(target)
     assert target.exists() is False
 
+    target = VirtualTarget("virtual")
+    _doRemove(target)
+
     # Multiple files
     targets = [test_file_2, test_file_3]
     _doRemove(targets)
@@ -470,7 +480,7 @@ def test_10_removeFileOperations(_=setupTestCopyMove):
 
 
 @test("Basic directory remove operations.")
-def test_XX_removeDirectoryOperations(_=setupTestCopyMove):
+def test_11_removeDirectoryOperations(_=setupTestCopyMove):
     """Basic directory remove operations."""
     def _doRemove(targets, recursive=False):
         getCurrentContext().clearRules()
@@ -525,7 +535,7 @@ def test_XX_removeDirectoryOperations(_=setupTestCopyMove):
 
 
 @test("Basic tar operations - single file")
-def test_10_tarSingleFile(_=setupTestCopyMove):
+def test_12_tarSingleFile(_=setupTestCopyMove):
     """Creates a tar archive from a single file."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -561,7 +571,7 @@ def test_10_tarSingleFile(_=setupTestCopyMove):
 
 @test("Basic tar operations - single file with rename")
 @skip
-def test_11_tarSingleFileRename(_=setupTestCopyMove):
+def test_13_tarSingleFileRename(_=setupTestCopyMove):
     """Creates a tar archive from a single file with a custom name in the archive."""
     # Currently no way to specify a name in the archive.
     raise NotImplementedError
@@ -596,7 +606,7 @@ def test_11_tarSingleFileRename(_=setupTestCopyMove):
 
 
 @test("Basic tar operations - multiple files")
-def test_12_tarMultipleFiles(_=setupTestCopyMove):
+def test_14_tarMultipleFiles(_=setupTestCopyMove):
     """Creates a tar archive from multiple files."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -639,7 +649,7 @@ def test_12_tarMultipleFiles(_=setupTestCopyMove):
 
 
 @test("Basic tar operations - directory")
-def test_13_tarDirectory(_=setupTestCopyMove):
+def test_15_tarDirectory(_=setupTestCopyMove):
     """Creates a tar archive from a directory."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -671,7 +681,7 @@ def test_13_tarDirectory(_=setupTestCopyMove):
 
 
 @test("Basic tar operations - link")
-def test_14_tarLink(_=setupTestCopyMove):
+def test_16_tarLink(_=setupTestCopyMove):
     """Creates a tar archive from a symbolic link."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -706,7 +716,7 @@ def test_14_tarLink(_=setupTestCopyMove):
 
 
 @test("Tar errors - non-existent source")
-def test_15_tarNonexistentSource(_=setupTestCopyMove):
+def test_17_tarNonexistentSource(_=setupTestCopyMove):
     """Attempts to create a tar archive from a non-existent source and raises an error."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -723,7 +733,7 @@ def test_15_tarNonexistentSource(_=setupTestCopyMove):
 
 
 @test("Tar with compression options")
-def test_16_tarCompression(_=setupTestCopyMove):
+def test_18_tarCompression(_=setupTestCopyMove):
     """Creates a tar archive with different compression options."""
     def _doTar(src, dst, compression):
         getCurrentContext().clearRules()
@@ -764,7 +774,7 @@ def test_16_tarCompression(_=setupTestCopyMove):
 
 
 @test("Basic zip operations - single file")
-def test_17_zipSingleFile(_=setupTestCopyMove):
+def test_19_zipSingleFile(_=setupTestCopyMove):
     """Creates a zip archive from a single file."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -800,7 +810,7 @@ def test_17_zipSingleFile(_=setupTestCopyMove):
 
 @test("Basic zip operations - single file with rename")
 @skip
-def test_18_zipSingleFileRename(_=setupTestCopyMove):
+def test_20_zipSingleFileRename(_=setupTestCopyMove):
     """Creates a zip archive from a single file with a custom name in the archive."""
     # Currently no way to specify a name in the archive.
     raise NotImplementedError
@@ -835,7 +845,7 @@ def test_18_zipSingleFileRename(_=setupTestCopyMove):
 
 
 @test("Basic zip operations - multiple files")
-def test_19_zipMultipleFiles(_=setupTestCopyMove):
+def test_21_zipMultipleFiles(_=setupTestCopyMove):
     """Creates a zip archive from multiple files."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -878,7 +888,7 @@ def test_19_zipMultipleFiles(_=setupTestCopyMove):
 
 
 @test("Basic zip operations - directory")
-def test_20_zipDirectory(_=setupTestCopyMove):
+def test_22_zipDirectory(_=setupTestCopyMove):
     """Creates a zip archive from a directory."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -910,7 +920,7 @@ def test_20_zipDirectory(_=setupTestCopyMove):
 
 
 @test("Basic zip operations - link")
-def test_21_zipLink(_=setupTestCopyMove):
+def test_23_zipLink(_=setupTestCopyMove):
     """Creates a zip archive from a symbolic link."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -945,7 +955,7 @@ def test_21_zipLink(_=setupTestCopyMove):
 
 
 @test("Zip errors - non-existent source")
-def test_22_zipNonexistentSource(_=setupTestCopyMove):
+def test_24_zipNonexistentSource(_=setupTestCopyMove):
     """Attempts to create a zip archive from a non-existent source and raises an error."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
