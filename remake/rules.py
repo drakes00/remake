@@ -182,7 +182,7 @@ class Rule():
                 if isinstance(elem, pathlib.Path):
                     ret += [str(elem)]
                 elif isinstance(elem, GlobPattern):
-                    ret += [elem.pattern]
+                    ret += [elem]  # Specifically keep GlobPattern as is to be expanded later.
                 else:
                     ret += [str(elem)]
             return ret
@@ -284,7 +284,7 @@ class PatternRule(Rule):
             action = []
             for elem in self.action:
                 if isinstance(elem, GlobPattern):
-                    action += [str(target.with_suffix(elem.suffix))]
+                    action += [str(super()._expandToAbsPath(target.with_suffix(elem.suffix)))]
                 else:
                     action += [elem]
             action = " ".join(action)

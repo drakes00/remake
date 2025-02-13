@@ -321,7 +321,7 @@ def test_08_patternRulesExpand(_=ensureCleanContext):
     assert namedRule.deps == [pathlib.Path("/tmp/a.bar")]
     assert namedRule.targets == [pathlib.Path("/tmp/a.foo")]
 
-    expectedAction = " ".join(fooBuilder.action).replace("$@", "/tmp.a.foo").replace("$^", "/tmp/a.bar").split(" ")
-    # assert namedRule.action == expectedAction
+    expectedAction = " ".join(fooBuilder.action).replace("$@", "/tmp/a.foo").replace("$^", "/tmp/a.bar").split(" ")
+    assert namedRule.action == expectedAction
 
 #     # Paths with ../ (all)
