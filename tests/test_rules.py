@@ -188,9 +188,9 @@ def test_05_patternRules(_=ensureCleanContext):
     assert rule.targets == [GlobPattern("main_*.foo")]
 
 
-@test("Pattern rules can expand to named targets")
-def test_06_patternRulesMatchExpand(_=ensureCleanContext):
-    """Pattern rules can expand to named targets"""
+@test("Pattern rules can be matched to named targets")
+def test_06_patternRulesMatch(_=ensureCleanContext):
+    """Pattern rules can be matched to named targets"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
 
@@ -307,5 +307,21 @@ def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
     assert rule.match("tmp_b.baz") == (pathlib.Path("tmp_b.baz"), [])
     assert rule.match("test_b.foo") == (pathlib.Path("test_b.foo"), [])
 
+
+@test("Pattern rules can be expanded to a named rule")
+def test_08_patternRulesExpand(_=ensureCleanContext):
+    """Pattern rules can be expanded to a named rule"""
+
+    os.chdir("/tmp")
+
+    fooBuilder = Builder(action="Magically creating $@ from $^")
+    rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
+    namedRule = rule.expand(pathlib.Path("a.foo"))
+
+    assert namedRule.deps == [pathlib.Path("/tmp/a.bar")]
+    assert namedRule.targets == [pathlib.Path("/tmp/a.foo")]
+
+    expectedAction = " ".join(fooBuilder.action).replace("$@", "/tmp.a.foo").replace("$^", "/tmp/a.bar").split(" ")
+    # assert namedRule.action == expectedAction
 
 #     # Paths with ../ (all)

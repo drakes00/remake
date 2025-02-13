@@ -725,6 +725,9 @@ def test_17_tarNonexistentSource(_=setupTestCopyMove):
     test_archive = Path("archive.tar.gz")
     source = Path("nonexistent_file.txt")
 
+    # Make sure archive does not exist
+    test_archive.unlink(missing_ok=True)
+
     with raises(FileNotFoundError):
         _doTar(source, test_archive)
 

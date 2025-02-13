@@ -84,7 +84,7 @@ class Builder():
         return self._action
 
     @property
-    def action(self) -> Callable[[list[str], list[str], Console], None]:
+    def action(self) -> list[str] | Callable[[list[str], list[str], Console], None]:
         """Returns builder's action."""
         return self._action
 

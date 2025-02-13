@@ -105,10 +105,12 @@ class Rule():
         return other is not None and isinstance(other,
                                                 Rule) and (self._targets,
                                                            self._deps,
-                                                           self._builder
+                                                           self._builder,
+                                                           self.action
                                                           ) == (other._targets,
                                                                 other._deps,
-                                                                other._builder)
+                                                                other._builder,
+                                                                other.action)
 
     def __hash__(self):
         return hash(tuple([tuple(self._targets), *self._deps, self._builder]))
