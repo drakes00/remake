@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-__version__ = "v1.1.0+6450831"
+__version__ = "v1.2.0+adf36a7"
 
 from remake.main import AddTarget, AddVirtualTarget
 from remake.rules import Rule, PatternRule
