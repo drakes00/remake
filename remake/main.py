@@ -229,7 +229,7 @@ def sortDeps(deps: List[TYP_DEP_GRAPH]) -> TYP_DEP_LIST:
 def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
     """Removes rules from dependencies list """
     def _mergeTargetsSameRule(origDeps: TYP_DEP_LIST) -> TYP_DEP_LIST:
-        """Remove duplicate calls to a rule that produces multiple dependencies."""
+        """Remove duplicate calls to a rule that produces multiple dependencies, except for PatternRules to be expanded for each target."""
         ret = []
         if len(origDeps) < 2:
             return origDeps
@@ -244,8 +244,8 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
             target = deps[-1]
             lhsDeps = deps[:-1]
 
-            if target[1] is not None:
-                # If target is a tuple, there is a rule associated.
+            if target[1] is not None and not isinstance(target[1], PatternRule):
+                # If target is a tuple, there is a rule associated that is not a PatternRule.
                 # Find all other targets that share the same rule.
                 otherTargets = list(filter(lambda _: _[1] == target[1], lhsDeps))
                 if otherTargets:
@@ -262,6 +262,7 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
                     ret += [target]
             else:
                 ret += [target]
+
             del deps[-1]
 
         ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
@@ -361,7 +362,6 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
                         raise FileNotFoundError
             else:
                 # Dependency with a rule, need to apply the rule.
-                targets, rule = dep
                 rulesSuccess = []
                 for target in targets:
                     if isinstance(rule, PatternRule):
