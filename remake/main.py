@@ -251,10 +251,7 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
                 if otherTargets:
                     # If there are other targets, merge them.
                     allTargetsSameRule = list(chain.from_iterable([_[0] for _ in otherTargets])) + target[0]
-                    allTargetsSameRule = list(
-                        i for (n,
-                               i) in enumerate(allTargetsSameRule) if i not in allTargetsSameRule[:n]
-                    )
+                    allTargetsSameRule = list(dict.fromkeys(allTargetsSameRule))  # Remove duplicates, preserving order
                     ret += [(allTargetsSameRule, target[1])]
                     for otherTarget in otherTargets:
                         deps.remove(otherTarget)
@@ -265,8 +262,7 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
 
             del deps[-1]
 
-        ret = ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
-        return ret
+        return ret[::-1]  # And sort back the list to the correct order since we iterated from the end to the beginning.
 
     def _removeDuplicatesWithNoRules(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         """Remove duplicate targets that have no associated rule."""
