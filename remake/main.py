@@ -315,10 +315,10 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
                 progress.advance(task)
             else:
                 targets, rule = dep
-                if isinstance(rule, PatternRule):
-                    rule = rule.expand(dep[0])
 
                 for target in targets:
+                    if isinstance(rule, PatternRule):
+                        rule = rule.expand(target)
                     _cleanDep(target)
                 progress.advance(task)
 
