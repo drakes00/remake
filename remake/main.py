@@ -179,7 +179,7 @@ def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
         if isClean():
             # We are attempting to clean a file that does not exist and not linked to any rule.
             # This is not supposed to happen.
-            raise ValueError
+            raise ValueError(f"Attempting to clean a ground dependency that does not exist: {target}")
         elif isDryRun():
             # If we are in dry run mode, deps might not exist, just assume it's OK.
             ret = VirtualDep(target) if isinstance(target, str) else target
