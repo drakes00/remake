@@ -15,6 +15,9 @@ ward-coverage = "^0.3.1"
 [tool.ward]
 hook_module = ["ward_coverage"]
 
+[tool.ward.plugins.coverage]
+omit = ["tests/*", "**/__init__.py"]
+
 [tool.poetry.group.dev.dependencies]
 dunamai = "^1.19.0"
 pylint = "^3.1.0"
