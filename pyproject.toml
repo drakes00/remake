@@ -6,7 +6,7 @@ authors = ["drakes00 <drakes00@gmail.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.12"
+python = "^3.13"
 rich = "^13.4.2"
 ward = "^0.68.0b0"
 typeguard = "^4.1.5"
