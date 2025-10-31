@@ -317,6 +317,9 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
                 targets, rule = dep
 
                 for target in targets:
+                    if isinstance(target, VirtualTarget):
+                        # Unable to clean a virtual target.
+                        continue
                     if isinstance(rule, PatternRule):
                         rule = rule.expand(target)
                     _cleanDep(target)

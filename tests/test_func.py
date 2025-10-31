@@ -8,7 +8,7 @@ import shutil
 
 from ward import test, raises, fixture
 
-from remake import Builder, Rule, PatternRule, AddTarget, VirtualTarget, VirtualDep
+from remake import Builder, Rule, PatternRule, AddTarget, AddVirtualTarget, VirtualTarget, VirtualDep
 from remake import findBuildPath, buildDeps, cleanDeps, generateDependencyList, getCurrentContext
 from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 
@@ -532,14 +532,44 @@ def test_08_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
     touchBuilder = Builder(action="touch $@")
 
     # Ensure file does not already exist.
+    os.chdir("/tmp")
     try:
         os.remove(f"{TMP_FILE}")
     except FileNotFoundError:
         pass
 
+    # With a real dependency.
     r_1 = Rule(targets=f"{TMP_FILE}", deps=[], builder=touchBuilder)
     AddTarget(TMP_FILE)
     assert buildDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
     assert os.path.isfile(TMP_FILE)
     assert cleanDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
     assert not os.path.isfile(TMP_FILE)
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Try with a virtual dependency.
+    r_2 = Rule(targets=VirtualTarget("virtualdeptoclean"), deps=[], builder=touchBuilder)
+    AddVirtualTarget("virtualdeptoclean")
+    assert buildDeps(generateDependencyList()) == [([VirtualTarget("virtualdeptoclean")], r_2)]
+    assert os.path.isfile("virtualdeptoclean")
+    assert cleanDeps(generateDependencyList()) == [([VirtualTarget("virtualdeptoclean")], r_2)]
+
+    # File is not removed since virtual target are ignored on clean.
+    assert os.path.isfile("virtualdeptoclean")
+    os.remove("virtualdeptoclean")
+    getCurrentContext().clearRules()
+    getCurrentContext().clearTargets()
+
+    # Try with a pattern rule.
+    # FIXME: Pattern rules currently do not support empty dependencies.
+    # https://github.com/drakes00/remake/issues/13
+    # r_3 = PatternRule(target="*.tmp", deps=[], builder=touchBuilder)
+    # AddTarget("/tmp/a.tmp")
+    # AddTarget("/tmp/b.tmp")
+    # assert buildDeps(generateDependencyList()) == [([pathlib.Path("/tmp/a.tmp"), pathlib.Path("/tmp/b.tmp")], r_3)]
+    # assert os.path.isfile("/tmp/a.tmp")
+    # assert os.path.isfile("/tmp/b.tmp")
+    # assert cleanDeps(generateDependencyList()) == [([pathlib.Path("/tmp/a.tmp"), pathlib.Path("/tmp/b.tmp")], r_3)]
+    # assert not os.path.isfile("/tmp/a.tmp")
+    # assert not os.path.isfile("/tmp/b.tmp")
