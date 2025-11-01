@@ -552,7 +552,7 @@ def main():
         "--clean",
         action="store_true",
     )
-    argparsr.add_argument(
+    argparser.add_argument(
         "-r",
         "--rebuild",
         action="store_true",
