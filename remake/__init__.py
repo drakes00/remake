@@ -12,4 +12,4 @@ from remake.context import getCurrentContext, getOldContext
 from remake.context import setVerbose, unsetVerbose, isVerbose
 from remake.context import setDryRun, unsetDryRun, isDryRun
 from remake.context import setDevTest, unsetDevTest, isDevTest
-from remake.context import setClean, unsetClean, isClean
+from remake.context import setClean, unsetClean, isClean, setRebuild, unsetRebuild, isRebuild

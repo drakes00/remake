@@ -11,7 +11,7 @@ from ward import test, fixture, skip
 
 from remake import Builder, Rule, PatternRule, AddTarget, VirtualTarget
 from remake import executeReMakeFileFromDirectory, buildDeps, generateDependencyList, getCurrentContext, getOldContext
-from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
+from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest, setClean, unsetClean, setRebuild, unsetRebuild
 
 TMP_FILE = "/tmp/remake.tmp"
 
@@ -882,3 +882,62 @@ PatternRule(target="*.beta", deps="*.gamma", builder=touchBuilder)
     getCurrentContext().clearTargets()
 
     # TODO VirtualTarget
+
+
+@test("Cleaning targets")
+def test_13_clean_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Cleaning targets"""
+
+    os.chdir("/tmp")
+    ReMakeFile = """
+touchBuilder = Builder(action="touch $@")
+Rule(targets="a", deps="b", builder=touchBuilder)
+Rule(targets="b", deps=[], builder=touchBuilder)
+AddTarget("a")
+"""
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
+        handle.write(ReMakeFile)
+
+    # 1. Build targets
+    executeReMakeFileFromDirectory("/tmp")
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+
+    # 2. Clean targets
+    setClean()
+    executeReMakeFileFromDirectory("/tmp")
+    assert not pathlib.Path("/tmp/a").exists()
+    assert not pathlib.Path("/tmp/b").exists()
+    unsetClean()
+
+
+@test("Rebuilding targets")
+def test_14_rebuild_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Rebuilding targets"""
+
+    os.chdir("/tmp")
+    ReMakeFile = """
+touchBuilder = Builder(action="touch $@")
+Rule(targets="a", deps="b", builder=touchBuilder)
+Rule(targets="b", deps=[], builder=touchBuilder)
+AddTarget("a")
+"""
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
+        handle.write(ReMakeFile)
+
+    # 1. Build targets
+    executeReMakeFileFromDirectory("/tmp")
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    a_mtime = pathlib.Path("/tmp/a").stat().st_mtime
+    b_mtime = pathlib.Path("/tmp/b").stat().st_mtime
+    time.sleep(0.01)
+
+    # 2. Rebuild targets
+    setRebuild()
+    executeReMakeFileFromDirectory("/tmp")
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    assert pathlib.Path("/tmp/a").stat().st_mtime > a_mtime
+    assert pathlib.Path("/tmp/b").stat().st_mtime > b_mtime
+    unsetRebuild()

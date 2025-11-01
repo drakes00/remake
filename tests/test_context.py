@@ -9,7 +9,7 @@ from ward import test
 from remake import setVerbose, unsetVerbose, isVerbose
 from remake import setDryRun, unsetDryRun, isDryRun
 from remake import setDevTest, unsetDevTest, isDevTest
-from remake import setClean, unsetClean, isClean
+from remake import setClean, unsetClean, isClean, setRebuild, unsetRebuild, isRebuild
 from remake.context import getCurrentContext
 from remake.main import AddTarget, AddVirtualTarget
 from remake.paths import VirtualTarget
@@ -88,3 +88,17 @@ def test_09_addTarget():
     AddVirtualTarget("a")
     assert getCurrentContext().targets == [VirtualTarget(_) for _ in ("a")]
     getCurrentContext().clearTargets()
+
+
+@test("setRebuild sets REBUILD to True")
+def test_10_setRebuild():
+    """setRebuild sets REBUILD to True"""
+    setRebuild()
+    assert isRebuild() is True
+
+
+@test("unsetRebuild sets REBUILD to False")
+def test_11_unsetRebuild():
+    """unsetRebuild sets REBUILD to False"""
+    unsetRebuild()
+    assert isRebuild() is False

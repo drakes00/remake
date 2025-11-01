@@ -17,6 +17,7 @@ VERBOSE = False
 DRY_RUN = False
 DEV_TEST = False
 CLEAN = False
+REBUILD = False
 
 
 @typechecked()
@@ -70,6 +71,19 @@ def isClean() -> bool:
 
 
 @typechecked()
+def isRebuild() -> bool:
+    """
+    Checks if ReMake is currently running in rebuild mode.
+
+    In rebuild mode, ReMake attempts to clean then build targets.
+
+    Returns:
+        True if rebuild mode is active, False otherwise.
+    """
+    return REBUILD
+
+
+@typechecked()
 def setDryRun() -> None:
     """Sets the global state to dry-run mode."""
     global DRY_RUN
@@ -95,6 +109,13 @@ def setClean() -> None:
     """Sets the global state to clean mode."""
     global CLEAN
     CLEAN = True
+
+
+@typechecked()
+def setRebuild() -> None:
+    """Sets the global state to rebuild mode."""
+    global REBUILD
+    REBUILD = True
 
 
 @typechecked()
@@ -126,6 +147,13 @@ def unsetClean() -> None:
     """Unsets the global clean mode."""
     global CLEAN
     CLEAN = False
+
+
+@typechecked()
+def unsetRebuild() -> None:
+    """Unsets the global rebuild mode."""
+    global REBUILD
+    REBUILD = False
 
 
 def getOldContext(cwd):

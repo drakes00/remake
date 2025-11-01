@@ -33,6 +33,7 @@ structures.
   displays actions without executing them.
 - **Clean Mode:** ReMake can clean generated files using the clean mode (`-c`
   or `--clean`), removing specified targets.
+- **Rebuild Mode:** ReMake can perform a full rebuild (clean and build) using the rebuild mode (`-r` or `--rebuild`).
 - **Target Selection:** ReMake supports building a specific target given in
   command-line.
 - **Rich Progress Output:** ReMake uses the `rich` library to display progress
@@ -71,6 +72,7 @@ Key command-line options include:
 - `-v` or `--verbose`: Enable verbose mode.
 - `-n` or `--dry-run`: Perform a dry run, showing actions without executing them.
 - `-c` or `--clean`: Clean specified targets.
+- `-r` or `--rebuild`: Perform a full rebuild (clean and build).
 
 For additional options and details, use:
 

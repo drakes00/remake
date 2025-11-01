@@ -33,7 +33,7 @@ from typeguard import typechecked
 from typing import Dict, List, Tuple, Union
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, Context
-from remake.context import isDryRun, isDevTest, isClean, setVerbose, setDryRun, setClean
+from remake.context import isDryRun, isDevTest, isClean, isRebuild, setVerbose, setDryRun, setClean, setRebuild
 from remake.paths import VirtualTarget, VirtualDep, TYP_PATH_LOOSE
 from remake.rules import TYP_DEP_LIST, TYP_DEP_GRAPH, PatternRule
 
@@ -133,12 +133,13 @@ def executeReMakeFileFromDirectory(
     loadScript(configFile)
     deps = generateDependencyList(targets)
     executedRules = []
-    if isClean() and deps:
-        # We are in clean mode and there are deps to clean.
-        cleanDeps(deps, configFile)
-    elif not isClean() and deps:
-        # We are in build mode and there are deps to build.
-        executedRules = buildDeps(deps, configFile)
+    if deps:
+        if isClean() or isRebuild():
+            # We are in clean mode and there are deps to clean.
+            cleanDeps(deps, configFile)
+        if not isClean():
+            # We are in build mode and there are deps to build.
+            executedRules = buildDeps(deps, configFile)
 
     os.chdir(oldCwd)
     oldContext = popContext()
@@ -551,6 +552,11 @@ def main():
         "--clean",
         action="store_true",
     )
+    argparsr.add_argument(
+        "-r",
+        "--rebuild",
+        action="store_true",
+    )
     argparser.add_argument(
         "-f",
         "--config-file",
@@ -575,6 +581,10 @@ def main():
     # Cleaning handling.
     if args.clean:
         setClean()
+
+    # Rebuild handling.
+    if args.rebuild:
+        setRebuild()
 
     # Handling target.
     if "targets" not in args:
