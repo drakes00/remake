@@ -134,11 +134,12 @@ def executeReMakeFileFromDirectory(
     deps = generateDependencyList(targets)
     executedRules = []
     if deps:
-        if isClean() or isRebuild():
-            # We are in clean mode and there are deps to clean.
+        if isRebuild():
             cleanDeps(deps, configFile)
-        if not isClean():
-            # We are in build mode and there are deps to build.
+            executedRules = buildDeps(deps, configFile)
+        elif isClean():
+            cleanDeps(deps, configFile)
+        else: # Default behavior: build
             executedRules = buildDeps(deps, configFile)
 
     os.chdir(oldCwd)
@@ -547,15 +548,18 @@ def main():
         "--dry-run",
         action="store_true",
     )
-    argparser.add_argument(
+    group = argparser.add_mutually_exclusive_group()
+    group.add_argument(
         "-c",
         "--clean",
         action="store_true",
+        help="Clean specified targets.",
     )
-    argparser.add_argument(
+    group.add_argument(
         "-r",
         "--rebuild",
         action="store_true",
+        help="Perform a full rebuild (clean and build).",
     )
     argparser.add_argument(
         "-f",

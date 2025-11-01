@@ -911,8 +911,41 @@ AddTarget("a")
     unsetClean()
 
 
+@test("Cleaning specific targets")
+def test_14_clean_specific_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Cleaning specific targets"""
+
+    os.chdir("/tmp")
+    ReMakeFile = """
+touchBuilder = Builder(action="touch $@")
+Rule(targets="a", deps=[], builder=touchBuilder)
+Rule(targets="b", deps=[], builder=touchBuilder)
+Rule(targets="c", deps=[], builder=touchBuilder)
+Rule(targets="d", deps=[], builder=touchBuilder)
+AddTarget(["a", "b", "c", "d"])
+"""
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
+        handle.write(ReMakeFile)
+
+    # 1. Build all targets
+    executeReMakeFileFromDirectory("/tmp")
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    assert pathlib.Path("/tmp/c").exists()
+    assert pathlib.Path("/tmp/d").exists()
+
+    # 2. Clean specific targets
+    setClean()
+    executeReMakeFileFromDirectory("/tmp", targets=["/tmp/a", "/tmp/c"])
+    assert not pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    assert not pathlib.Path("/tmp/c").exists()
+    assert pathlib.Path("/tmp/d").exists()
+    unsetClean()
+
+
 @test("Rebuilding targets")
-def test_14_rebuild_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_15_rebuild_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
     """Rebuilding targets"""
 
     os.chdir("/tmp")
@@ -940,4 +973,48 @@ AddTarget("a")
     assert pathlib.Path("/tmp/b").exists()
     assert pathlib.Path("/tmp/a").stat().st_mtime > a_mtime
     assert pathlib.Path("/tmp/b").stat().st_mtime > b_mtime
+    unsetRebuild()
+
+
+@test("Rebuilding specific targets")
+def test_16_rebuild_specific_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+    """Rebuilding specific targets"""
+
+    os.chdir("/tmp")
+    ReMakeFile = """
+touchBuilder = Builder(action="touch $@")
+Rule(targets="a", deps=[], builder=touchBuilder)
+Rule(targets="b", deps=[], builder=touchBuilder)
+Rule(targets="c", deps=[], builder=touchBuilder)
+Rule(targets="d", deps=[], builder=touchBuilder)
+AddTarget(["a", "b", "c", "d"])
+"""
+    with open("/tmp/ReMakeFile", "w+", encoding="utf-8") as handle:
+        handle.write(ReMakeFile)
+
+    # 1. Build all targets
+    executeReMakeFileFromDirectory("/tmp")
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    assert pathlib.Path("/tmp/c").exists()
+    assert pathlib.Path("/tmp/d").exists()
+
+    a_mtime = pathlib.Path("/tmp/a").stat().st_mtime
+    b_mtime = pathlib.Path("/tmp/b").stat().st_mtime
+    c_mtime = pathlib.Path("/tmp/c").stat().st_mtime
+    d_mtime = pathlib.Path("/tmp/d").stat().st_mtime
+    time.sleep(0.01)
+
+    # 2. Rebuild specific targets
+    setRebuild()
+    executeReMakeFileFromDirectory("/tmp", targets=["/tmp/a", "/tmp/c"])
+    assert pathlib.Path("/tmp/a").exists()
+    assert pathlib.Path("/tmp/b").exists()
+    assert pathlib.Path("/tmp/c").exists()
+    assert pathlib.Path("/tmp/d").exists()
+
+    assert pathlib.Path("/tmp/a").stat().st_mtime > a_mtime
+    assert pathlib.Path("/tmp/b").stat().st_mtime == b_mtime
+    assert pathlib.Path("/tmp/c").stat().st_mtime > c_mtime
+    assert pathlib.Path("/tmp/d").stat().st_mtime == d_mtime
     unsetRebuild()
