@@ -1,6 +1,21 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""Main functions of ReMake."""
+"""
+Main functions and entry point for the ReMake build tool.
+
+This module contains the core logic for parsing the ReMakeFile, building the
+dependency graph, and executing the build rules. It also defines the main
+command-line interface and handles user arguments.
+
+Key functions:
+- `main`: The main entry point for the `remake` command.
+- `executeReMakeFileFromDirectory`: Orchestrates the loading, parsing, and
+  execution of a ReMakeFile.
+- `generateDependencyList`: Creates a sorted and optimized list of dependencies.
+- `findBuildPath`: Recursively constructs the dependency graph for a given target.
+- `buildDeps`: Executes the build process based on the dependency list.
+- `cleanDeps`: Executes the cleaning process to remove built targets.
+"""
 
 import argparse
 import os
@@ -28,8 +43,20 @@ from remake.rules import Rule  # Import needed to avoid imports in ReMakeFile
 
 @typechecked
 class AddTarget:
-    """Class registering files as remake targets."""
+    """
+    Registers one or more files as build targets in the current ReMake context.
+
+    This class is intended to be used within a ReMakeFile to declare the
+    final targets that the build should produce.
+    """
     def __init__(self, targets: list[str | pathlib.Path] | str | pathlib.Path):
+        """
+        Initializes AddTarget and registers the specified targets.
+
+        Args:
+            targets: A single target or a list of targets. Each target can be
+                     a string or a pathlib.Path object.
+        """
         if isinstance(targets, (str, pathlib.Path)):
             getCurrentContext().addTargets(pathlib.Path(targets).absolute())
         elif isinstance(targets, list):
@@ -38,7 +65,18 @@ class AddTarget:
 
 @typechecked
 def AddVirtualTarget(name: str) -> VirtualTarget:
-    """Method registering remake targets that are not files."""
+    """
+    Registers a virtual target (one that is not a file) in the current context.
+
+    Virtual targets are useful for representing abstract goals or for rules that
+    do not produce a file output.
+
+    Args:
+        name: The name of the virtual target.
+
+    Returns:
+        A VirtualTarget instance representing the newly created target.
+    """
     ret = VirtualTarget(name)
     getCurrentContext().addTargets(ret)
     return ret
@@ -46,8 +84,19 @@ def AddVirtualTarget(name: str) -> VirtualTarget:
 
 @typechecked
 class SubReMakeDir:
-    """Instantiate a sub context for a call to a sub ReMakeFile."""
+    """
+    Executes a ReMakeFile in a subdirectory, creating a new context for it.
+
+    This allows for hierarchical or modular builds where different parts of a
+    project have their own ReMakeFile.
+    """
     def __init__(self, subDir: str):
+        """
+        Initializes SubReMakeDir and executes the ReMakeFile in the subdirectory.
+
+        Args:
+            subDir: The path to the subdirectory containing the sub-ReMakeFile.
+        """
         executeReMakeFileFromDirectory(subDir)
 
 
@@ -57,7 +106,25 @@ def executeReMakeFileFromDirectory(
     configFile: str = "ReMakeFile",
     targets: list[TYP_PATH_LOOSE] | None = None
 ) -> Context:
-    """Loads ReMakeFile from current directory in a new context and builds associated targets."""
+    """
+    Loads and executes a ReMakeFile from a specified directory.
+
+    This function orchestrates the entire build process for a given directory:
+    1. Creates a new execution context.
+    2. Loads and executes the ReMakeFile script.
+    3. Generates the dependency graph for the specified targets.
+    4. Either builds the targets or cleans them, based on the current mode.
+    5. Returns the context containing the results of the execution.
+
+    Args:
+        cwd: The directory from which to execute the ReMakeFile.
+        configFile: The name of the ReMakeFile script. Defaults to "ReMakeFile".
+        targets: An optional list of specific targets to build or clean. If None,
+                 the default targets from the context are used.
+
+    Returns:
+        The Context object populated with the dependency list and executed rules.
+    """
     absCwd = os.path.abspath(cwd)
     addContext(absCwd)
     oldCwd = os.getcwd()
@@ -84,7 +151,12 @@ def executeReMakeFileFromDirectory(
 
 @typechecked
 def loadScript(configFile: str = "ReMakeFile") -> None:
-    """Loads and execs the ReMakeFile script."""
+    """
+    Loads and executes the content of a ReMakeFile script.
+
+    Args:
+        configFile: The name of the ReMakeFile to load. Defaults to "ReMakeFile".
+    """
     with open(configFile, "r", encoding="utf-8") as handle:
         script = handle.read()
 
@@ -93,7 +165,16 @@ def loadScript(configFile: str = "ReMakeFile") -> None:
 
 @typechecked
 def generateDependencyList(targets: list[TYP_PATH_LOOSE] | None = None) -> TYP_DEP_LIST:
-    """Generates and sorts dependency list."""
+    """
+    Generates, sorts, and optimizes the dependency list for the given targets.
+
+    Args:
+        targets: An optional list of targets. If None, the default targets from
+                 the current context are used.
+
+    Returns:
+        A sorted and optimized list of dependencies and their associated rules.
+    """
     deps = []
     if targets is None:
         targets = getCurrentContext().targets
@@ -108,7 +189,23 @@ def generateDependencyList(targets: list[TYP_PATH_LOOSE] | None = None) -> TYP_D
 
 @typechecked
 def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
-    """Constructs dependency graph from registered rules."""
+    """
+    Recursively constructs the dependency graph for a single target.
+
+    It searches for a rule to build the target, starting from named rules in the
+    current context and its parents, then moving to pattern rules. If no rule is
+    found, it checks if the target is a pre-existing file (a ground dependency).
+
+    Args:
+        target: The target for which to find the build path.
+
+    Returns:
+        A dependency graph for the target, represented as a nested dictionary.
+
+    Raises:
+        ValueError: If in 'clean' mode and a non-existent ground dependency is found.
+        SystemExit: If in 'build' mode and no rule is found to create a non-existent target.
+    """
     depNames = []
     foundRule = None
 
@@ -201,8 +298,18 @@ def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
 
 @typechecked
 def sortDeps(deps: List[TYP_DEP_GRAPH]) -> TYP_DEP_LIST:
-    """Sorts dependency graph as a reverse level order list.
-    Snippet from: https://www.geeksforgeeks.org/reverse-level-order-traversal/"""
+    """
+    Sorts a dependency graph into a flat list using a reverse level order traversal.
+
+    This ensures that dependencies are processed before the targets that depend on them.
+    Snippet from: https://www.geeksforgeeks.org/reverse-level-order-traversal/
+
+    Args:
+        deps: A list of dependency graphs to sort.
+
+    Returns:
+        A flat list of (targets, rule) tuples, sorted in build order.
+    """
     tmpQueue = deque()
     ret = deque()
 
@@ -227,7 +334,19 @@ def sortDeps(deps: List[TYP_DEP_GRAPH]) -> TYP_DEP_LIST:
 
 @typechecked
 def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
-    """Removes rules from dependencies list """
+    """
+    Optimizes the sorted dependency list by merging and removing redundant entries.
+
+    This function performs two main optimizations:
+    1. Merges multiple targets that are built by the same rule into a single entry.
+    2. Removes duplicate targets that have no associated build rule.
+
+    Args:
+        deps: The sorted dependency list to optimize.
+
+    Returns:
+        An optimized dependency list.
+    """
     def _mergeTargetsSameRule(origDeps: TYP_DEP_LIST) -> TYP_DEP_LIST:
         """Remove duplicate calls to a rule that produces multiple dependencies, except for PatternRules to be expanded for each target."""
         ret = []
@@ -291,7 +410,19 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
 
 @typechecked
 def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIST:
-    """Builds files marked as targets from their dependencies."""
+    """
+    Cleans the targets specified in the dependency list.
+
+    Iterates through the dependencies and removes the target files or directories.
+    It skips ground dependencies (those with no build rule) and virtual targets.
+
+    Args:
+        deps: The sorted and optimized dependency list.
+        configFile: The name of the ReMakeFile being executed, for logging purposes.
+
+    Returns:
+        The original dependency list.
+    """
     def _cleanDep(target):
         if os.path.exists(target):
             progress.console.print(
@@ -330,7 +461,22 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
 
 @typechecked
 def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIST:
-    """Builds files marked as targets from their dependencies."""
+    """
+    Executes the build process for the given dependency list.
+
+    Iterates through the sorted list, applying the associated rule for each entry
+    if the target needs to be rebuilt.
+
+    Args:
+        deps: The sorted and optimized dependency list.
+        configFile: The name of the ReMakeFile being executed, for logging purposes.
+
+    Returns:
+        A list of the rules that were successfully applied.
+
+    Raises:
+        FileNotFoundError: If a ground dependency does not exist when it is needed.
+    """
     rulesApplied = []
     with Progress() as progress:
         progress.console.print(
@@ -384,7 +530,11 @@ def buildDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
 
 
 def main():
-    """Main function of ReMake."""
+    """
+    The main entry point and command-line interface for ReMake.
+
+    Parses command-line arguments and initiates the build or clean process.
+    """
     argparser = argparse.ArgumentParser(prog="remake", description="ReMake is a make-like tool.")
     argparser.add_argument(
         "-v",
