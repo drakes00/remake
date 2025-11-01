@@ -43,14 +43,13 @@ structures.
 
 ## Installation
 
-To install ReMake, clone the repository and run the following command:
+The recommended way to install ReMake is using `pipx`, which ensures that the tool and its dependencies are installed in an isolated environment:
 
 ```bash
-git clone https://github.com/drakes00/remake.git
-cd remake
-pip install .
+pipx install git+https://github.com/drakes00/remake.git
 ```
-Or within a `poetry` environment, run the following command:
+
+Alternatively, if you are using `poetry` for your project, you can add ReMake with:
 ```bash
 poetry add git+https://github.com/drakes00/remake.git
 ```
