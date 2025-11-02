@@ -184,20 +184,45 @@ def generateDependencyList(targets: list[TYP_PATH_LOOSE] | None = None) -> TYP_D
     Returns:
         A sorted and optimized list of dependencies and their associated rules.
     """
-    deps = []
-    if targets is None:
-        targets = getCurrentContext().targets
+    def _isValidBuildPath(ret: TYP_DEP_GRAPH) -> bool:
+        """Checks if a given dependency graph is a dead end."""
+        return not (len(ret) == 1 and list(ret.keys())[0][1] == None)
 
-    for target in targets:
-        deps += [findBuildPath(target)]
+    deps = []
+    if targets is not None:
+        # Clear existing targets.
+        getCurrentContext().clearTargets()
+
+        # Properly check specified targets via AddTarget and AddVirtualTarget.
+        for target in targets:
+            # Firt try with virtual target since when not in dry run mode,
+            # paths will be searched on the file system.
+            virTarget = AddVirtualTarget.format(target)
+            ret = findBuildPath(virTarget)
+            if _isValidBuildPath(ret):
+                deps += [ret]
+                continue
+
+            # If no valid build path found as a virtual target, then try as a path.
+            pathTarget = AddTarget.format(target)
+            ret = findBuildPath(pathTarget)
+            if _isValidBuildPath(ret):
+                deps += [ret]
+                continue
+
+    else:
+        targets = getCurrentContext().targets
+        for target in targets:
+            deps += [findBuildPath(target)]
 
     deps = sortDeps(deps)
     deps = optimizeDeps(deps)
     return deps
 
 
+# TODO: Add a forwardrefpolicy.IGNORE into the decorator.
 @typechecked
-def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
+def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
     """
     Recursively constructs the dependency graph for a single target.
 

@@ -27,6 +27,8 @@ def ensureCleanContext():
     getCurrentContext().clearTargets()
     unsetDryRun()
     unsetDevTest()
+    unsetClean()
+    unsetRebuild()
 
 
 @fixture
