@@ -3,6 +3,7 @@
 """Functional test cases."""
 
 import os
+import glob
 import pathlib
 import shutil
 
@@ -36,6 +37,7 @@ def ensureEmptyTmp():
     prev_dir = os.getcwd()
 
     os.chdir("/tmp")
+    os.makedirs("/tmp/remake", exist_ok=True)
     try:
         os.remove("/tmp/ReMakeFile")
     except FileNotFoundError:
@@ -45,6 +47,13 @@ def ensureEmptyTmp():
         try:
             assert f.startswith("/tmp")
             shutil.rmtree(f)
+        except FileNotFoundError:
+            pass
+
+    for f in glob.glob("/tmp/remake/*"):
+        try:
+            assert f.startswith("/tmp")
+            os.remove(f)
         except FileNotFoundError:
             pass
 
@@ -60,6 +69,13 @@ def ensureEmptyTmp():
         try:
             assert f.startswith("/tmp")
             shutil.rmtree(f)
+        except FileNotFoundError:
+            pass
+
+    for f in glob.glob("/tmp/remake/*"):
+        try:
+            assert f.startswith("/tmp")
+            os.remove(f)
         except FileNotFoundError:
             pass
 
@@ -930,7 +946,7 @@ def test_09_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
 
     setDevTest()
     setDryRun()
-    os.chdir("/tmp")
+    os.chdir("/tmp/remake")
     fooBuilder = Builder(action="Magically creating $@ from $<")
     r_1 = Rule(targets=["a", "b"], deps="c", builder=fooBuilder)
     r_2 = Rule(targets=["d", "e"], deps="a", builder=fooBuilder)
@@ -938,13 +954,13 @@ def test_09_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     AddTarget("b")
     AddTarget("d")
     AddTarget("e")
-    os.chdir("/tmp")
+    os.chdir("/tmp/remake")
     assert buildDeps(generateDependencyList()) == [
-        ([pathlib.Path("/tmp/a"),
-          pathlib.Path("/tmp/b")],
+        ([pathlib.Path("/tmp/remake/a"),
+          pathlib.Path("/tmp/remake/b")],
          r_1),
-        ([pathlib.Path("/tmp/d"),
-          pathlib.Path("/tmp/e")],
+        ([pathlib.Path("/tmp/remake/d"),
+          pathlib.Path("/tmp/remake/e")],
          r_2)
     ]
 
@@ -956,7 +972,7 @@ def test_10_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
     touchBuilder = Builder(action="touch $@")
 
     # Ensure file does not already exist.
-    os.chdir("/tmp")
+    os.chdir("/tmp/remake")
     try:
         os.remove(f"{TMP_FILE}")
     except FileNotFoundError:
@@ -967,7 +983,7 @@ def test_10_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
     AddTarget(TMP_FILE)
     assert buildDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
     assert os.path.isfile(TMP_FILE)
-    assert cleanDeps(generateDependencyList()) == [([pathlib.Path(TMP_FILE)], r_1)]
+    assert cleanDeps(generateDependencyList()) == [pathlib.Path(TMP_FILE)]
     assert not os.path.isfile(TMP_FILE)
     getCurrentContext().clearRules()
     getCurrentContext().clearTargets()
@@ -977,7 +993,7 @@ def test_10_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
     AddVirtualTarget("virtualdeptoclean")
     assert buildDeps(generateDependencyList()) == [([VirtualTarget("virtualdeptoclean")], r_2)]
     assert os.path.isfile("virtualdeptoclean")
-    assert cleanDeps(generateDependencyList()) == [([VirtualTarget("virtualdeptoclean")], r_2)]
+    assert cleanDeps(generateDependencyList()) == []
 
     # File is not removed since virtual target are ignored on clean.
     assert os.path.isfile("virtualdeptoclean")
@@ -986,14 +1002,18 @@ def test_10_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
     getCurrentContext().clearTargets()
 
     # Try with a pattern rule.
-    # FIXME: Pattern rules currently do not support empty dependencies.
-    # https://github.com/drakes00/remake/issues/13
-    # r_3 = PatternRule(target="*.tmp", deps=[], builder=touchBuilder)
-    # AddTarget("/tmp/a.tmp")
-    # AddTarget("/tmp/b.tmp")
-    # assert buildDeps(generateDependencyList()) == [([pathlib.Path("/tmp/a.tmp"), pathlib.Path("/tmp/b.tmp")], r_3)]
-    # assert os.path.isfile("/tmp/a.tmp")
-    # assert os.path.isfile("/tmp/b.tmp")
-    # assert cleanDeps(generateDependencyList()) == [([pathlib.Path("/tmp/a.tmp"), pathlib.Path("/tmp/b.tmp")], r_3)]
-    # assert not os.path.isfile("/tmp/a.tmp")
-    # assert not os.path.isfile("/tmp/b.tmp")
+    r_3 = PatternRule(target="*.tmp", deps=[], builder=touchBuilder)
+    AddTarget("a.tmp")
+    AddTarget("b.tmp")
+    print()
+    assert buildDeps(generateDependencyList()) == [
+        ([pathlib.Path("/tmp/remake/a.tmp")],
+         r_3.expand(pathlib.Path("a.tmp"))),
+        ([pathlib.Path("/tmp/remake/b.tmp")],
+         r_3.expand(pathlib.Path("b.tmp")))
+    ]
+    assert os.path.isfile("/tmp/remake/a.tmp")
+    assert os.path.isfile("/tmp/remake/b.tmp")
+    assert cleanDeps(generateDependencyList()) == [pathlib.Path("/tmp/remake/a.tmp"), pathlib.Path("/tmp/remake/b.tmp")]
+    assert not os.path.isfile("/tmp/remake/a.tmp")
+    assert not os.path.isfile("/tmp/remake/b.tmp")

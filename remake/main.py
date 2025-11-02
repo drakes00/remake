@@ -220,7 +220,6 @@ def generateDependencyList(targets: list[TYP_PATH_LOOSE] | None = None) -> TYP_D
     return deps
 
 
-# TODO: Add a forwardrefpolicy.IGNORE into the decorator.
 @typechecked
 def findBuildPath(target: TYP_PATH) -> TYP_DEP_GRAPH:
     """
@@ -443,7 +442,7 @@ def optimizeDeps(deps: TYP_DEP_LIST) -> TYP_DEP_LIST:
 
 
 @typechecked
-def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIST:
+def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> list[pathlib.Path]:
     """
     Cleans the targets specified in the dependency list.
 
@@ -467,6 +466,7 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
             elif target.is_dir():
                 shutil.rmtree(target)
 
+    cleanedTargets = []
     with Progress() as progress:
         progress.console.print(
             f"[+] [green bold] Executing {configFile} for folder {getCurrentContext().cwd}.[/bold green]"
@@ -479,18 +479,17 @@ def cleanDeps(deps: TYP_DEP_LIST, configFile: str = "ReMakeFile") -> TYP_DEP_LIS
                 # Let's not delete a ground dependency.
                 progress.advance(task)
             else:
-                targets, rule = dep
+                targets, _ = dep
 
                 for target in targets:
                     if isinstance(target, VirtualTarget):
                         # Unable to clean a virtual target.
                         continue
-                    if isinstance(rule, PatternRule):
-                        rule = rule.expand(target)
                     _cleanDep(target)
+                    cleanedTargets += [target]
                 progress.advance(task)
 
-    return deps
+    return cleanedTargets
 
 
 @typechecked

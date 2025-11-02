@@ -358,7 +358,6 @@ class PatternRule(Rule):
             AssertionError: If target or dependency patterns do not contain exactly one '*'.
             NotImplementedError: If an unsupported dependency type is provided.
         """
-        # FIXME Does not seem to handle PatternRules such as "a*.foo"
         assert target.count("*") == 1
         if isinstance(deps, list):
             for dep in deps:
