@@ -17,5 +17,5 @@ jobs:
         python-version: "3.13"
     - name: Install pylint
       run: pip install pylint
-    - name: Python Pylin GitHub Action
+    - name: Python Pylint GitHub Action
       run: pip install poetry && poetry install && poetry run pylint --rcfile=.github/workflows/pylintrc --fail-under=9.5 remake tests
