@@ -42,8 +42,10 @@ def test_01_namedRulesAbsolutePath(_=ensureCleanContext):
     r_1 = Rule(targets="/tmp/a", deps="/tmp/b", builder=fooBuilder)
     assert r_1.deps == [pathlib.Path("/tmp/b")]
     assert r_1.targets == [pathlib.Path("/tmp/a")]
-    assert r_1.match("/tmp/a")
-    assert not r_1.match("/tmp/b")
+    # Rule.match only accepts pathlib.Path or VirtualTarget/Dep.
+    # Yet rule target/dep as str was correctly handled.
+    assert r_1.match(pathlib.Path("/tmp/a"))
+    assert not r_1.match(pathlib.Path("/tmp/b"))
 
     # Pathlib absolute paths as string.
     r_2 = Rule(targets=pathlib.Path("/tmp/a"), deps=pathlib.Path("/tmp/b"), builder=fooBuilder)
@@ -71,8 +73,10 @@ def test_02_namedRulesRelativePath(_=ensureCleanContext):
     r_1 = Rule(targets="a", deps="b", builder=fooBuilder)
     assert r_1.deps == [pathlib.Path("/tmp/b")]
     assert r_1.targets == [pathlib.Path("/tmp/a")]
-    assert r_1.match("/tmp/a")
-    assert not r_1.match("/tmp/b")
+    # Rule.match only accepts pathlib.Path or VirtualTarget/Dep.
+    # Yet rule target/dep as str was correctly handled.
+    assert r_1.match(pathlib.Path("/tmp/a"))
+    assert not r_1.match(pathlib.Path("/tmp/b"))
 
     # Pathlib relative paths as string.
     r_2 = Rule(targets=pathlib.Path("a"), deps=pathlib.Path("b"), builder=fooBuilder)
@@ -205,42 +209,60 @@ def test_06_patternRulesMatch(_=ensureCleanContext):
 
     # Simple pattern rule with fixed RHS.
     rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder)
-    assert rule.match("a.foo") == (pathlib.Path("a.foo"), [pathlib.Path("a.bar")])
-    assert rule.match("a.bar") == (pathlib.Path("a.bar"), [])
-    assert rule.match("a.baz") == (pathlib.Path("a.baz"), [])
+    assert rule.match(pathlib.Path("a.foo")) == (pathlib.Path("a.foo"), [pathlib.Path("a.bar")])
+    assert rule.match(pathlib.Path("a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("a.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with fixed RHS.
     rule = PatternRule(target="*.foo", deps=["*.bar", "*.baz"], builder=fooBuilder)
-    assert rule.match("a.foo") == (pathlib.Path("a.foo"), [pathlib.Path("a.bar"), pathlib.Path("a.baz")])
-    assert rule.match("a.bar") == (pathlib.Path("a.bar"), [])
-    assert rule.match("a.baz") == (pathlib.Path("a.baz"), [])
+    assert rule.match(pathlib.Path("a.foo")) == (pathlib.Path("a.foo"), [pathlib.Path("a.bar"), pathlib.Path("a.baz")])
+    assert rule.match(pathlib.Path("a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("a.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Simple pattern rule with fixed LHS.
     rule = PatternRule(target="tmp_*", deps="test_*", builder=fooBuilder)
-    assert rule.match("tmp_a") == (pathlib.Path("tmp_a"), [pathlib.Path("test_a")])
-    assert rule.match("test_a") == (pathlib.Path("test_a"), [])
-    assert rule.match("tmp_b") == (pathlib.Path("tmp_b"), [pathlib.Path("test_b")])
+    assert rule.match(pathlib.Path("tmp_a")) == (pathlib.Path("tmp_a"), [pathlib.Path("test_a")])
+    assert rule.match(pathlib.Path("test_a")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b")) == (pathlib.Path("tmp_b"), [pathlib.Path("test_b")])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with fixed LHS.
     rule = PatternRule(target="tmp_*", deps=["test_*", "data_*"], builder=fooBuilder)
-    assert rule.match("tmp_a") == (pathlib.Path("tmp_a"), [pathlib.Path("test_a"), pathlib.Path("data_a")])
-    assert rule.match("test_a") == (pathlib.Path("test_a"), [])
-    assert rule.match("tmp_b") == (pathlib.Path("tmp_b"), [pathlib.Path("test_b"), pathlib.Path("data_b")])
+    assert rule.match(pathlib.Path("tmp_a")
+                     ) == (pathlib.Path("tmp_a"),
+                           [pathlib.Path("test_a"),
+                            pathlib.Path("data_a")])
+    assert rule.match(pathlib.Path("test_a")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b")
+                     ) == (pathlib.Path("tmp_b"),
+                           [pathlib.Path("test_b"),
+                            pathlib.Path("data_b")])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Simple pattern rule with both fixed LHS and RHS.
     rule = PatternRule(target="tmp_*.foo", deps="test_*.bar", builder=fooBuilder)
-    assert rule.match("tmp_a.foo") == (pathlib.Path("tmp_a.foo"), [pathlib.Path("test_a.bar")])
-    assert rule.match("tmp_a.bar") == (pathlib.Path("tmp_a.bar"), [])
-    assert rule.match("tmp_a.baz") == (pathlib.Path("tmp_a.baz"), [])
+    assert rule.match(pathlib.Path("tmp_a.foo")) == (pathlib.Path("tmp_a.foo"), [pathlib.Path("test_a.bar")])
+    assert rule.match(pathlib.Path("tmp_a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_a.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with both fixed LHS and RHS.
     rule = PatternRule(target="tmp_*.foo", deps=["test_*.bar", "test_*.baz"], builder=fooBuilder)
-    assert rule.match("tmp_a.foo"
+    assert rule.match(pathlib.Path("tmp_a.foo")
                      ) == (pathlib.Path("tmp_a.foo"),
                            [pathlib.Path("test_a.bar"),
                             pathlib.Path("test_a.baz")])
-    assert rule.match("tmp_a.bar") == (pathlib.Path("tmp_a.bar"), [])
-    assert rule.match("tmp_a.baz") == (pathlib.Path("tmp_a.baz"), [])
+    assert rule.match(pathlib.Path("tmp_a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_a.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
 
 @test("Pattern rules can exlude targets")
@@ -251,50 +273,63 @@ def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
 
     # Simple pattern rule with fixed RHS.
     rule = PatternRule(target="*.foo", deps="*.bar", builder=fooBuilder, exclude=["a.foo"])
-    assert rule.match("a.foo") == (pathlib.Path("a.foo"), [])
-    assert rule.match("a.bar") == (pathlib.Path("a.bar"), [])
-    assert rule.match("a.baz") == (pathlib.Path("a.baz"), [])
-    assert rule.match("b.foo") == (pathlib.Path("b.foo"), [pathlib.Path("b.bar")])
-    assert rule.match("b.bar") == (pathlib.Path("b.bar"), [])
-    assert rule.match("b.baz") == (pathlib.Path("b.baz"), [])
+    assert rule.match(pathlib.Path("a.foo")) == (None, [])
+    assert rule.match(pathlib.Path("a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("a.baz")) == (None, [])
+    assert rule.match(pathlib.Path("b.foo")) == (pathlib.Path("b.foo"), [pathlib.Path("b.bar")])
+    assert rule.match(pathlib.Path("b.bar")) == (None, [])
+    assert rule.match(pathlib.Path("b.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with fixed RHS.
     rule = PatternRule(target="*.foo", deps=["*.bar", "*.baz"], builder=fooBuilder, exclude=["a.foo"])
-    assert rule.match("a.foo") == (pathlib.Path("a.foo"), [])
-    assert rule.match("a.bar") == (pathlib.Path("a.bar"), [])
-    assert rule.match("a.baz") == (pathlib.Path("a.baz"), [])
-    assert rule.match("b.foo") == (pathlib.Path("b.foo"), [pathlib.Path("b.bar"), pathlib.Path("b.baz")])
-    assert rule.match("b.bar") == (pathlib.Path("b.bar"), [])
-    assert rule.match("b.baz") == (pathlib.Path("b.baz"), [])
+    assert rule.match(pathlib.Path("a.foo")) == (None, [])
+    assert rule.match(pathlib.Path("a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("a.baz")) == (None, [])
+    assert rule.match(pathlib.Path("b.foo")) == (pathlib.Path("b.foo"), [pathlib.Path("b.bar"), pathlib.Path("b.baz")])
+    assert rule.match(pathlib.Path("b.bar")) == (None, [])
+    assert rule.match(pathlib.Path("b.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Simple pattern rule with fixed LHS.
     rule = PatternRule(target="tmp_*", deps="test_*", builder=fooBuilder, exclude=["tmp_a"])
-    assert rule.match("tmp_a") == (pathlib.Path("tmp_a"), [])
-    assert rule.match("test_a") == (pathlib.Path("test_a"), [])
-    assert rule.match("main_a") == (pathlib.Path("main_a"), [])
-    assert rule.match("tmp_b") == (pathlib.Path("tmp_b"), [pathlib.Path("test_b")])
-    assert rule.match("test_b") == (pathlib.Path("test_b"), [])
-    assert rule.match("main_b") == (pathlib.Path("main_b"), [])
+    assert rule.match(pathlib.Path("tmp_a")) == (None, [])
+    assert rule.match(pathlib.Path("test_a")) == (None, [])
+    assert rule.match(pathlib.Path("main_a")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b")) == (pathlib.Path("tmp_b"), [pathlib.Path("test_b")])
+    assert rule.match(pathlib.Path("test_b")) == (None, [])
+    assert rule.match(pathlib.Path("main_b")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with fixed LHS.
     rule = PatternRule(target="tmp_*", deps=["test_*", "data_*"], builder=fooBuilder, exclude=["tmp_a"])
-    assert rule.match("tmp_a") == (pathlib.Path("tmp_a"), [])
-    assert rule.match("test_a") == (pathlib.Path("test_a"), [])
-    assert rule.match("main_a") == (pathlib.Path("main_a"), [])
-    assert rule.match("tmp_b") == (pathlib.Path("tmp_b"), [pathlib.Path("test_b"), pathlib.Path("data_b")])
-    assert rule.match("test_b") == (pathlib.Path("test_b"), [])
-    assert rule.match("main_b") == (pathlib.Path("main_b"), [])
+    assert rule.match(pathlib.Path("tmp_a")) == (None, [])
+    assert rule.match(pathlib.Path("test_a")) == (None, [])
+    assert rule.match(pathlib.Path("main_a")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b")
+                     ) == (pathlib.Path("tmp_b"),
+                           [pathlib.Path("test_b"),
+                            pathlib.Path("data_b")])
+    assert rule.match(pathlib.Path("test_b")) == (None, [])
+    assert rule.match(pathlib.Path("main_b")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Simple pattern rule with both fixed LHS and RHS.
     rule = PatternRule(target="tmp_*.foo", deps="test_*.bar", builder=fooBuilder, exclude=["tmp_a.foo"])
-    assert rule.match("tmp_a.foo") == (pathlib.Path("tmp_a.foo"), [])
-    assert rule.match("test_a.bar") == (pathlib.Path("test_a.bar"), [])
-    assert rule.match("tmp_a.baz") == (pathlib.Path("tmp_a.baz"), [])
-    assert rule.match("test_a.baz") == (pathlib.Path("test_a.baz"), [])
-    assert rule.match("tmp_b.foo") == (pathlib.Path("tmp_b.foo"), [pathlib.Path("test_b.bar")])
-    assert rule.match("test_b.bar") == (pathlib.Path("test_b.bar"), [])
-    assert rule.match("tmp_b.baz") == (pathlib.Path("tmp_b.baz"), [])
-    assert rule.match("test_b.baz") == (pathlib.Path("test_b.baz"), [])
+    assert rule.match(pathlib.Path("tmp_a.foo")) == (None, [])
+    assert rule.match(pathlib.Path("test_a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_a.baz")) == (None, [])
+    assert rule.match(pathlib.Path("test_a.baz")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b.foo")) == (pathlib.Path("tmp_b.foo"), [pathlib.Path("test_b.bar")])
+    assert rule.match(pathlib.Path("test_b.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b.baz")) == (None, [])
+    assert rule.match(pathlib.Path("test_b.baz")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
     # Multiple deps pattern rule with both fixed LHS and RHS.
     rule = PatternRule(
@@ -304,17 +339,19 @@ def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
         builder=fooBuilder,
         exclude=["tmp_a.foo"],
     )
-    assert rule.match("tmp_a.foo") == (pathlib.Path("tmp_a.foo"), [])
-    assert rule.match("test_a.bar") == (pathlib.Path("test_a.bar"), [])
-    assert rule.match("tmp_a.baz") == (pathlib.Path("tmp_a.baz"), [])
-    assert rule.match("test_a.foo") == (pathlib.Path("test_a.foo"), [])
-    assert rule.match("tmp_b.foo"
+    assert rule.match(pathlib.Path("tmp_a.foo")) == (None, [])
+    assert rule.match(pathlib.Path("test_a.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_a.baz")) == (None, [])
+    assert rule.match(pathlib.Path("test_a.foo")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b.foo")
                      ) == (pathlib.Path("tmp_b.foo"),
                            [pathlib.Path("test_b.bar"),
                             pathlib.Path("data_b.baz")])
-    assert rule.match("test_b.bar") == (pathlib.Path("test_b.bar"), [])
-    assert rule.match("tmp_b.baz") == (pathlib.Path("tmp_b.baz"), [])
-    assert rule.match("test_b.foo") == (pathlib.Path("test_b.foo"), [])
+    assert rule.match(pathlib.Path("test_b.bar")) == (None, [])
+    assert rule.match(pathlib.Path("tmp_b.baz")) == (None, [])
+    assert rule.match(pathlib.Path("test_b.foo")) == (None, [])
+    assert rule.match(VirtualTarget("virt")) == (None, [])
+    assert rule.match(VirtualDep("virt")) == (None, [])
 
 
 @test("Pattern rules can be expanded to a named rule")
@@ -332,5 +369,6 @@ def test_08_patternRulesExpand(_=ensureCleanContext):
 
     expectedAction = " ".join(fooBuilder.action).replace("$@", "/tmp/a.foo").replace("$^", "/tmp/a.bar").split(" ")
     assert namedRule.action == expectedAction
+
 
 #     # Paths with ../ (all)

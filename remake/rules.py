@@ -253,21 +253,23 @@ class Rule():
 
         return True
 
-    def match(self, other: TYP_PATH_LOOSE) -> TYP_PATH | None:
+    def match(self, other: TYP_PATH) -> TYP_PATH | None:
         """
         Checks if the rule's targets match a given path.
 
         Args:
             other: The path to match against the rule's targets.
-                   Can be a string, pathlib.Path, VirtualTarget, or VirtualDep.
+                   Can be a pathlib.Path, VirtualTarget, or VirtualDep.
 
         Returns:
             The matching target (as TYP_PATH) if a match is found, otherwise None.
         """
         for target in self._targets:
-            # Important to compare strings because targets can be of multiple type (str, pathlib.Path, virtual).
-            if re.fullmatch(str(target), str(other)):
+            if target == other:
                 return target
+            elif isinstance(target, pathlib.Path) and isinstance(other, pathlib.Path):
+                if target.absolute() == other.absolute():
+                    return target
         return None
 
     @property
@@ -411,7 +413,7 @@ class PatternRule(Rule):
         raddix = str(other).replace(prefix, "").replace(suffix, "")
         return pathlib.Path(dep.pattern.replace("*", raddix))
 
-    def match(self, other: pathlib.Path | str) -> tuple[pathlib.Path, list[pathlib.Path]]:
+    def match(self, other: TYP_PATH) -> tuple[pathlib.Path | None, list[pathlib.Path]]:
         """
         Checks if a given path matches the pattern rule's target pattern and is not excluded.
 
@@ -420,19 +422,22 @@ class PatternRule(Rule):
 
         Args:
             other: The path to check against the pattern rule's target pattern.
+                   Can be a pathlib.Path, VirtualTarget, or VirtualDep, yet, on only Paths will be matched.
 
         Returns:
             A tuple containing:
+            - None and an empty list is rule was not matched.
+            Or:
             - The matching target path (as pathlib.Path).
-            - A list of instantiated dependency paths (as pathlib.Path).
-            If no match or if excluded, returns (pathlib.Path(other), []).
+            - A potentially empty list of instantiated dependency paths (as pathlib.Path).
         """
-        if isinstance(other, str):
-            other = pathlib.Path(other)
+        # If other to match is virtual, immediately fail.
+        if isinstance(other, (VirtualTarget, VirtualDep)):
+            return (None, [])
 
         # Check if other is excluded from pattern rule.
         if str(other) in self._exclude:
-            return (pathlib.Path(other), [])
+            return (None, [])
 
         ret = []
         assert all(isinstance(_, GlobPattern) for _ in self._targets)
@@ -440,7 +445,9 @@ class PatternRule(Rule):
             for dep in self._deps:
                 ret += [self.instanciate(other, dep)]
 
-        return (pathlib.Path(other), ret)
+            return (pathlib.Path(other), ret)
+        else:
+            return (None, [])
 
     def expand(self, target: pathlib.Path) -> Rule:
         """

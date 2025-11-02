@@ -59,7 +59,7 @@ class VirtualTarget():
         Two VirtualTarget instances are considered equal if they are both
         VirtualTarget objects and have the same name.
         """
-        return isinstance(other, VirtualTarget) and self._name == other._name
+        return isinstance(other, (VirtualTarget, VirtualDep)) and self._name == other._name
 
     def __lt__(self, other):
         """
@@ -122,7 +122,7 @@ class VirtualDep():
         Two VirtualDep instances are considered equal if they are both
         VirtualDep objects and have the same name.
         """
-        return isinstance(other, VirtualDep) and self._name == other._name
+        return isinstance(other, (VirtualTarget, VirtualDep)) and self._name == other._name
 
 
 @typechecked()

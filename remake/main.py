@@ -34,7 +34,7 @@ from typing import Dict, List, Tuple, Union
 
 from remake.context import addContext, popContext, addOldContext, getCurrentContext, getContexts, Context
 from remake.context import isDryRun, isDevTest, isClean, isRebuild, setVerbose, setDryRun, setClean, setRebuild
-from remake.paths import VirtualTarget, VirtualDep, TYP_PATH_LOOSE
+from remake.paths import VirtualTarget, VirtualDep, TYP_PATH_LOOSE, TYP_PATH
 from remake.rules import TYP_DEP_LIST, TYP_DEP_GRAPH, PatternRule
 
 from remake.builders import Builder  # Import needed to avoid imports in ReMakeFile
@@ -58,28 +58,35 @@ class AddTarget:
                      a string or a pathlib.Path object.
         """
         if isinstance(targets, (str, pathlib.Path)):
-            getCurrentContext().addTargets(pathlib.Path(targets).absolute())
+            getCurrentContext().addTargets(self.format(targets))
         elif isinstance(targets, list):
-            getCurrentContext().addTargets([pathlib.Path(_).absolute() for _ in targets])
+            getCurrentContext().addTargets([self.format(_) for _ in targets])
+
+    @classmethod
+    def format(cls, target: str | pathlib.Path) -> pathlib.Path:
+        return pathlib.Path(target).absolute()
 
 
 @typechecked
-def AddVirtualTarget(name: str) -> VirtualTarget:
-    """
-    Registers a virtual target (one that is not a file) in the current context.
+class AddVirtualTarget:
+    def __init__(self, name: str):
+        """
+        Registers a virtual target (one that is not a file) in the current context.
 
-    Virtual targets are useful for representing abstract goals or for rules that
-    do not produce a file output.
+        Virtual targets are useful for representing abstract goals or for rules that
+        do not produce a file output.
 
-    Args:
-        name: The name of the virtual target.
+        Args:
+            name: The name of the virtual target.
 
-    Returns:
-        A VirtualTarget instance representing the newly created target.
-    """
-    ret = VirtualTarget(name)
-    getCurrentContext().addTargets(ret)
-    return ret
+        Returns:
+            A VirtualTarget instance representing the newly created target.
+        """
+        getCurrentContext().addTargets(self.format(name))
+
+    @classmethod
+    def format(cls, name: str) -> VirtualTarget:
+        return VirtualTarget(name)
 
 
 @typechecked
@@ -139,7 +146,7 @@ def executeReMakeFileFromDirectory(
             executedRules = buildDeps(deps, configFile)
         elif isClean():
             cleanDeps(deps, configFile)
-        else: # Default behavior: build
+        else:  # Default behavior: build
             executedRules = buildDeps(deps, configFile)
 
     os.chdir(oldCwd)
@@ -219,7 +226,7 @@ def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
         # First with named rules that will directly match the target.
         for rule in namedRules:
             matchedTarget = rule.match(target)
-            if matchedTarget:
+            if matchedTarget is not None:
                 # Target found in rule's target.
                 depNames += rule.deps
                 foundRule = rule
@@ -237,7 +244,7 @@ def findBuildPath(target: TYP_PATH_LOOSE) -> TYP_DEP_GRAPH:
         # Then with pattern rules that are generic.
         for rule in patternRules:
             matchedTarget, depNames = rule.match(target)
-            if depNames:
+            if matchedTarget is not None:
                 # Since rule was an anonymous rule (with *),
                 # Expanding the rule to generate deps file names within match method.
                 foundRule = rule
