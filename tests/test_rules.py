@@ -15,11 +15,20 @@ from remake import unsetDryRun, unsetDevTest, getCurrentContext
 @fixture
 def ensureCleanContext():
     """Fixture clearing context before and after testcase."""
+
+    # Save current directory.
+    prev_dir = os.getcwd()
+
     getCurrentContext().clearRules()
+
     yield
+
     getCurrentContext().clearRules()
     unsetDryRun()
     unsetDevTest()
+
+    # Restore previous directory.
+    os.chdir(prev_dir)
 
 
 @test("Named rules can accept absolute paths")

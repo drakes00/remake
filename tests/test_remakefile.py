@@ -33,6 +33,9 @@ def ensureCleanContext():
 def ensureEmptyTmp():
     """Ensures that all ReMake related files created in /tmp are emptied between tests."""
 
+    # Save current directory.
+    prev_dir = os.getcwd()
+
     os.chdir("/tmp")
     try:
         os.remove("/tmp/ReMakeFile")
@@ -60,6 +63,9 @@ def ensureEmptyTmp():
             shutil.rmtree(f)
         except FileNotFoundError:
             pass
+
+    # Return where we were.
+    os.chdir(prev_dir)
 
 
 @test("ReMakeFile can be parsed")

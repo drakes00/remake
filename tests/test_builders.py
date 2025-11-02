@@ -33,7 +33,10 @@ def checkTmpFile():
 
 @fixture
 def setupTestCopyMove():
-    # Create some test files and directories
+    # Save current directory.
+    prev_dir = os.getcwd()
+
+    # Create some test files and directories.
     os.makedirs("/tmp/remake", exist_ok=True)
     os.chdir("/tmp/remake")
     test_file_1 = "test_file_1.txt"
@@ -64,7 +67,7 @@ def setupTestCopyMove():
 
     yield
 
-    # Clean up test files and directories
+    # Clean up test files and directories.
     if os.path.isfile(test_file_1):
         os.remove(test_file_1)
     if os.path.isfile(test_file_2):
@@ -83,6 +86,9 @@ def setupTestCopyMove():
         shutil.rmtree(test_dir_3)
     if os.path.isdir(test_dir_4):
         shutil.rmtree(test_dir_4)
+
+    # Return where we were.
+    os.chdir(prev_dir)
 
 
 @test("Builders can handle python functions")
