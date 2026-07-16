@@ -6,14 +6,14 @@ import os
 import pathlib
 
 from typeguard import TypeCheckError
-from ward import test, fixture, raises
+import pytest
 
 from remake import Builder, Rule, PatternRule, VirtualDep, VirtualTarget, GlobPattern
 from remake import unsetDryRun, unsetDevTest, getCurrentContext
 
 
-@fixture
-def ensureCleanContext():
+@pytest.fixture(name="_ensureCleanContext")
+def fixture_ensureCleanContext():
     """Fixture clearing context before and after testcase."""
 
     # Save current directory.
@@ -31,8 +31,7 @@ def ensureCleanContext():
     os.chdir(prev_dir)
 
 
-@test("Named rules can accept absolute paths")
-def test_01_namedRulesAbsolutePath(_=ensureCleanContext):
+def test_01_namedRulesAbsolutePath(_ensureCleanContext):
     """Named rules can accept absolute paths"""
 
     os.chdir("/etc")  # Using a different directory than paths in rules.
@@ -62,8 +61,7 @@ def test_01_namedRulesAbsolutePath(_=ensureCleanContext):
     assert not r_3.match(VirtualTarget("/tmp/b"))
 
 
-@test("Named rules can accept relative paths")
-def test_02_namedRulesRelativePath(_=ensureCleanContext):
+def test_02_namedRulesRelativePath(_ensureCleanContext):
     """Nampprintpped rules can accept relative paths"""
 
     os.chdir("/tmp")
@@ -93,16 +91,15 @@ def test_02_namedRulesRelativePath(_=ensureCleanContext):
     assert not r_3.match(VirtualTarget("b"))
 
     # Check VirtualTargets
-    with raises(TypeCheckError):
+    with pytest.raises(TypeCheckError):
         Rule(targets="bar", deps=VirtualTarget("foo"), builder=fooBuilder)
 
     # Check VirtualDeps
-    with raises(TypeCheckError):
+    with pytest.raises(TypeCheckError):
         Rule(targets=VirtualDep("bar"), deps="foo", builder=fooBuilder)
 
 
-@test("Named rules can accept list of absolute paths")
-def test_03_namedRulesListAbsolutePath(_=ensureCleanContext):
+def test_03_namedRulesListAbsolutePath(_ensureCleanContext):
     """Named rules can accept list of absolute paths"""
 
     os.chdir("/etc")  # Using a different directory than paths in rules.
@@ -136,8 +133,7 @@ def test_03_namedRulesListAbsolutePath(_=ensureCleanContext):
     assert r_3.targets == [VirtualTarget("/tmp/a1"), VirtualTarget("/tmp/a2")]
 
 
-@test("Named rules can accept list of relative paths")
-def test_04_namedRulesListRelativePath(_=ensureCleanContext):
+def test_04_namedRulesListRelativePath(_ensureCleanContext):
     """Named rules can accept list of relative paths"""
 
     os.chdir("/tmp")
@@ -171,16 +167,15 @@ def test_04_namedRulesListRelativePath(_=ensureCleanContext):
     assert r_3.targets == [VirtualTarget("a1"), VirtualTarget("a2")]
 
     # Check VirtualTargets
-    with raises(TypeCheckError):
+    with pytest.raises(TypeCheckError):
         Rule(targets="bar", deps=[VirtualTarget("foo"), VirtualTarget("foo2")], builder=fooBuilder)
 
     # Check VirtualDeps
-    with raises(TypeCheckError):
+    with pytest.raises(TypeCheckError):
         Rule(targets=[VirtualDep("bar"), VirtualDep("bar2")], deps="foo", builder=fooBuilder)
 
 
-@test("Rules can be patterns")
-def test_05_patternRules(_=ensureCleanContext):
+def test_05_patternRules(_ensureCleanContext):
     """Rules can be patterns"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -201,8 +196,7 @@ def test_05_patternRules(_=ensureCleanContext):
     assert rule.targets == [GlobPattern("main_*.foo")]
 
 
-@test("Pattern rules can be matched to named targets")
-def test_06_patternRulesMatch(_=ensureCleanContext):
+def test_06_patternRulesMatch(_ensureCleanContext):
     """Pattern rules can be matched to named targets"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -265,8 +259,7 @@ def test_06_patternRulesMatch(_=ensureCleanContext):
     assert rule.match(VirtualDep("virt")) == (None, [])
 
 
-@test("Pattern rules can exlude targets")
-def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
+def test_07_patternRulesExcludeTargets(_ensureCleanContext):
     """Pattern rules can exlude targets"""
 
     fooBuilder = Builder(action="Magically creating $@ from $^")
@@ -354,8 +347,7 @@ def test_07_patternRulesExcludeTargets(_=ensureCleanContext):
     assert rule.match(VirtualDep("virt")) == (None, [])
 
 
-@test("Pattern rules can be expanded to a named rule")
-def test_08_patternRulesExpand(_=ensureCleanContext):
+def test_08_patternRulesExpand(_ensureCleanContext):
     """Pattern rules can be expanded to a named rule"""
 
     os.chdir("/tmp")

@@ -1,6 +1,5 @@
 import sys
 from unittest.mock import patch, ANY
-from ward import test
 from remake.main import main
 from remake.context import isVerbose, unsetVerbose, isRebuild, unsetRebuild, isClean, unsetClean, isDryRun, unsetDryRun
 import io
@@ -14,7 +13,6 @@ def _reset_all_flags():
     unsetRebuild()
 
 
-@test("main function handles --verbose flag")
 def test_main_verbose():
     """Verify that 'main' correctly handles the --verbose flag."""
     _reset_all_flags()
@@ -29,7 +27,6 @@ def test_main_verbose():
     _reset_all_flags()
 
 
-@test("main function handles --dry-run flag (implies --verbose)")
 def test_main_dry_run():
     """Verify that 'main' correctly handles the --dry-run flag and implies --verbose."""
     _reset_all_flags()
@@ -44,7 +41,6 @@ def test_main_dry_run():
     _reset_all_flags()
 
 
-@test("main function handles --clean flag")
 def test_main_clean():
     """Verify that 'main' correctly handles the --clean flag."""
     _reset_all_flags()
@@ -59,7 +55,6 @@ def test_main_clean():
     _reset_all_flags()
 
 
-@test("main function handles --rebuild flag")
 def test_main_rebuild():
     """Verify that 'main' correctly handles the --rebuild flag."""
     _reset_all_flags()
@@ -74,7 +69,6 @@ def test_main_rebuild():
     _reset_all_flags()
 
 
-@test("main function handles --config-file flag")
 def test_main_config_file():
     """Verify that 'main' correctly handles the --config-file flag."""
     _reset_all_flags()
@@ -86,7 +80,6 @@ def test_main_config_file():
     _reset_all_flags()
 
 
-@test("main function handles multiple targets")
 def test_main_multiple_targets():
     """Verify that 'main' correctly identifies and passes multiple targets."""
     _reset_all_flags()
@@ -98,7 +91,6 @@ def test_main_multiple_targets():
     _reset_all_flags()
 
 
-@test("main function handles --verbose and --clean flags")
 def test_main_verbose_clean():
     """Verify that 'main' correctly handles --verbose and --clean flags."""
     _reset_all_flags()
@@ -113,7 +105,6 @@ def test_main_verbose_clean():
     _reset_all_flags()
 
 
-@test("main function handles --dry-run and --clean flags")
 def test_main_dry_run_clean():
     """Verify that 'main' correctly handles --dry-run and --clean flags."""
     _reset_all_flags()
@@ -128,7 +119,6 @@ def test_main_dry_run_clean():
     _reset_all_flags()
 
 
-@test("main function errors when --clean and --rebuild are used together")
 def test_main_clean_rebuild_errors():
     """Verify that 'main' errors if both --clean and --rebuild are provided."""
     _reset_all_flags()
@@ -146,7 +136,6 @@ def test_main_clean_rebuild_errors():
     _reset_all_flags()
 
 
-@test("main function handles --verbose and --rebuild flags")
 def test_main_verbose_rebuild():
     """Verify that 'main' correctly handles --verbose and --rebuild flags."""
     _reset_all_flags()
@@ -161,7 +150,6 @@ def test_main_verbose_rebuild():
     _reset_all_flags()
 
 
-@test("main function handles --dry-run and --rebuild flags")
 def test_main_dry_run_rebuild():
     """Verify that 'main' correctly handles --dry-run and --rebuild flags."""
     _reset_all_flags()
@@ -176,7 +164,6 @@ def test_main_dry_run_rebuild():
     _reset_all_flags()
 
 
-@test("main function handles --config-file and target")
 def test_main_config_file_and_target():
     """Verify that 'main' correctly handles --config-file and a target."""
     _reset_all_flags()
@@ -189,7 +176,6 @@ def test_main_config_file_and_target():
     _reset_all_flags()
 
 
-@test("main function handles --clean with specific targets")
 def test_main_clean_specific_targets():
     """Verify that 'main' correctly handles --clean with specific targets."""
     _reset_all_flags()
@@ -202,7 +188,6 @@ def test_main_clean_specific_targets():
     _reset_all_flags()
 
 
-@test("main function handles --rebuild with specific targets")
 def test_main_rebuild_specific_targets():
     """Verify that 'main' correctly handles --rebuild with specific targets."""
     _reset_all_flags()

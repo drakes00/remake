@@ -7,7 +7,7 @@ import pathlib
 import shutil
 import time
 
-from ward import test, fixture, skip
+import pytest
 
 from remake import Builder, Rule, PatternRule, AddTarget, VirtualTarget
 from remake import executeReMakeFileFromDirectory, buildDeps, generateDependencyList, getCurrentContext, getOldContext
@@ -16,8 +16,8 @@ from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest, setClean, u
 TMP_FILE = "/tmp/remake.tmp"
 
 
-@fixture
-def ensureCleanContext():
+@pytest.fixture(name="_ensureCleanContext")
+def fixture_ensureCleanContext():
     """Cleans rules and targets and unsets dev mode and dry mode between tests."""
 
     getCurrentContext().clearRules()
@@ -31,8 +31,8 @@ def ensureCleanContext():
     unsetRebuild()
 
 
-@fixture
-def ensureEmptyTmp():
+@pytest.fixture(name="_ensureEmptyTmp")
+def fixture_ensureEmptyTmp():
     """Ensures that all ReMake related files created in /tmp are emptied between tests."""
 
     # Save current directory.
@@ -70,8 +70,7 @@ def ensureEmptyTmp():
     os.chdir(prev_dir)
 
 
-@test("ReMakeFile can be parsed")
-def test_01_parseReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_01_parseReMakeFile(_ensureCleanContext, _ensureEmptyTmp):
     """ReMakeFile can be parsed"""
 
     ReMakeFile = """
@@ -107,8 +106,7 @@ AddTarget("d.foo")
     assert targets == [pathlib.Path("/tmp/d"), pathlib.Path("/tmp/d.foo")]
 
 
-@test("Sub ReMakeFiles can be called")
-def test_02_parseSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_02_parseSubReMakeFile(_ensureCleanContext, _ensureEmptyTmp):
     """Sub ReMakeFiles can be called"""
 
     ReMakeFile = """
@@ -154,8 +152,7 @@ AddTarget("d.foo")
     assert targets == [pathlib.Path("/tmp/remake_subdir/d"), pathlib.Path("/tmp/remake_subdir/d.foo")]
 
 
-@test("3 levels of subfile")
-def test_03_3levelsSubReMakeFile(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_03_3levelsSubReMakeFile(_ensureCleanContext, _ensureEmptyTmp):
     """3 levels of subfile"""
 
     ReMakeFile = """
@@ -208,8 +205,7 @@ AddTarget("d.foo")
     assert targets == [pathlib.Path("/tmp/remake_subdir2/d"), pathlib.Path("/tmp/remake_subdir2/d.foo")]
 
 
-@test("Parent rules and builders are accessible from subfile if not overriden")
-def test_04_accessParentRulesFromChild(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_04_accessParentRulesFromChild(_ensureCleanContext, _ensureEmptyTmp):
     """Parent rules and builders are accessible from subfile if not overriden"""
 
     ReMakeFile = """
@@ -254,8 +250,7 @@ AddTarget("c.foo")
     assert generateDependencyList() == context.deps
 
 
-@test("Subfile can override rules")
-def test_05_overrideRules(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_05_overrideRules(_ensureCleanContext, _ensureEmptyTmp):
     """Subfile can override rules"""
 
     ReMakeFile = """
@@ -298,8 +293,7 @@ AddTarget("b.foo")
     assert generateDependencyList() == context.deps
 
 
-@test("Subfile rules are removed at the end of subfile (parent's rules are kept)")
-def test_06_overrideParentRulesKept(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_06_overrideParentRulesKept(_ensureCleanContext, _ensureEmptyTmp):
     """Subfile rules are removed at the end of subfile (parent's rules are kept)"""
 
     ReMakeFile = """
@@ -342,8 +336,7 @@ PatternRule(target="*.foo", deps="*.baz", builder=fooBuilder)
     assert generateDependencyList() == context.deps
 
 
-@test("Subfile can override rules one after another")
-def test_07_overrideRulesMultipleFiles(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_07_overrideRulesMultipleFiles(_ensureCleanContext, _ensureEmptyTmp):
     """Subfile can override rules one after another"""
 
     ReMakeFile = """
@@ -410,8 +403,7 @@ AddTarget("b.foo")
     assert generateDependencyList() == context2.deps
 
 
-@test("Subfiles can access parent's deps with ../")
-def test_08_accessFilesParentDir(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_08_accessFilesParentDir(_ensureCleanContext, _ensureEmptyTmp):
     """Subfiles can access parent's deps with ../"""
 
     ReMakeFile = """
@@ -457,8 +449,7 @@ AddTarget("c.baz")
     assert generateDependencyList() == context.deps
 
 
-@test("Parents can access subfiles targets")
-def test_09_parentAccessSubfileTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_09_parentAccessSubfileTargets(_ensureCleanContext, _ensureEmptyTmp):
     """Parents can access subfiles targets"""
 
     ReMakeFile = """
@@ -502,8 +493,7 @@ AddTarget("b.baz")
     assert generateDependencyList() == context.deps
 
 
-@test("Detection of newer dep to rebuild target")
-def test_10_detectNewerDep(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_10_detectNewerDep(_ensureCleanContext, _ensureEmptyTmp):
     """Detection of newer dep to rebuild target"""
 
     os.chdir("/tmp")
@@ -567,8 +557,7 @@ AddTarget("a")
     assert context.executedRules == [([pathlib.Path("/tmp/a")], r_4)]
 
 
-@test("Detection of newer dep of dep (3 levels) to rebuild target")
-def test_11_detectNewerDepsMultipleLevel(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_11_detectNewerDepsMultipleLevel(_ensureCleanContext, _ensureEmptyTmp):
     """Detection of newer dep of dep (3 levels) to rebuild target"""
 
     os.chdir("/tmp")
@@ -676,8 +665,7 @@ AddTarget("a")
     assert context.executedRules == [([pathlib.Path("/tmp/b")], r_4_1), ([pathlib.Path("/tmp/a")], r_4_2)]
 
 
-@test("Making specific targets")
-def test_12_specificTargets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_12_specificTargets(_ensureCleanContext, _ensureEmptyTmp):
     """Making specific targets"""
 
     ReMakeFile = """
@@ -892,8 +880,7 @@ PatternRule(target="*.beta", deps="*.gamma", builder=touchBuilder)
     # TODO VirtualTarget
 
 
-@test("Cleaning targets")
-def test_13_clean_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_13_clean_targets(_ensureCleanContext, _ensureEmptyTmp):
     """Cleaning targets"""
 
     os.chdir("/tmp")
@@ -919,8 +906,7 @@ AddTarget("a")
     unsetClean()
 
 
-@test("Cleaning specific targets")
-def test_14_clean_specific_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_14_clean_specific_targets(_ensureCleanContext, _ensureEmptyTmp):
     """Cleaning specific targets"""
 
     os.chdir("/tmp")
@@ -952,8 +938,7 @@ AddTarget(["a", "b", "c", "d"])
     unsetClean()
 
 
-@test("Rebuilding targets")
-def test_15_rebuild_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_15_rebuild_targets(_ensureCleanContext, _ensureEmptyTmp):
     """Rebuilding targets"""
 
     os.chdir("/tmp")
@@ -984,8 +969,7 @@ AddTarget("a")
     unsetRebuild()
 
 
-@test("Rebuilding specific targets")
-def test_16_rebuild_specific_targets(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_16_rebuild_specific_targets(_ensureCleanContext, _ensureEmptyTmp):
     """Rebuilding specific targets"""
 
     os.chdir("/tmp")

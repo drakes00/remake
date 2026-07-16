@@ -7,7 +7,7 @@ import glob
 import pathlib
 import shutil
 
-from ward import test, raises, fixture
+import pytest
 
 from remake import Builder, Rule, PatternRule, AddTarget, AddVirtualTarget, VirtualTarget, VirtualDep
 from remake import findBuildPath, buildDeps, cleanDeps, generateDependencyList, getCurrentContext
@@ -16,8 +16,8 @@ from remake import setDryRun, setDevTest, unsetDryRun, unsetDevTest
 TMP_FILE = "/tmp/remake.tmp"
 
 
-@fixture
-def ensureCleanContext():
+@pytest.fixture(name="_ensureCleanContext")
+def fixture_ensureCleanContext():
     """Cleans rules and targets and unsets dev mode and dry mode between tests."""
 
     getCurrentContext().clearRules()
@@ -29,8 +29,8 @@ def ensureCleanContext():
     unsetDevTest()
 
 
-@fixture
-def ensureEmptyTmp():
+@pytest.fixture(name="_ensureEmptyTmp")
+def fixture_ensureEmptyTmp():
     """Ensures that all ReMake related files created in /tmp are emptied between tests."""
 
     # Save current directory.
@@ -83,8 +83,7 @@ def ensureEmptyTmp():
     os.chdir(prev_dir)
 
 
-@test("Correctly computes virtual dependency trees")
-def test_01_funDepsVirt(_=ensureCleanContext):
+def test_01_funDepsVirt(_ensureCleanContext):
     """Correctly computes virtual dependency trees"""
 
     setDryRun()
@@ -320,8 +319,7 @@ def test_01_funDepsVirt(_=ensureCleanContext):
     getCurrentContext().clearRules()
 
 
-@test("Correctly computes virtual dependency trees")
-def test_02_funDepsPath(_=ensureCleanContext):
+def test_02_funDepsPath(_ensureCleanContext):
     """Correctly computes virtual dependency trees"""
 
     setDryRun()
@@ -574,8 +572,7 @@ def test_02_funDepsPath(_=ensureCleanContext):
     getCurrentContext().clearRules()
 
 
-@test("Correctly computes mixed path/virtual dependency trees")
-def test_03_funDepsMixed(_=ensureCleanContext):
+def test_03_funDepsMixed(_ensureCleanContext):
     """Correctly computes mixed path/virtual dependency trees"""
 
     setDryRun()
@@ -737,8 +734,7 @@ def test_03_funDepsMixed(_=ensureCleanContext):
     getCurrentContext().clearRules()
 
 
-@test("Dependency can appear multiple times in the tree")
-def test_04_funDepsMultipleTimes(_=ensureCleanContext):
+def test_04_funDepsMultipleTimes(_ensureCleanContext):
     """Dependency can appear multiple times in the tree"""
 
     setDevTest()
@@ -764,8 +760,7 @@ def test_04_funDepsMultipleTimes(_=ensureCleanContext):
     }
 
 
-@test("Same rule applied twice should be ignored")
-def test_05_funSameRuleTwice(_=ensureCleanContext):
+def test_05_funSameRuleTwice(_ensureCleanContext):
     """Same rule applied twice should be ignored"""
 
     setDevTest()
@@ -790,8 +785,7 @@ def test_05_funSameRuleTwice(_=ensureCleanContext):
     }
 
 
-@test("Rules must make targets")
-def test_06_funMakeTarget(_=ensureCleanContext):
+def test_06_funMakeTarget(_ensureCleanContext):
     """Rules must make targets"""
 
     fooBuilder = Builder(action="ls > /dev/null")
@@ -805,7 +799,7 @@ def test_06_funMakeTarget(_=ensureCleanContext):
 
     # Ensure rule not making the target file will throw.
     rule = Rule(targets=f"{TMP_FILE}", deps=[], builder=fooBuilder)
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         rule.apply()
     getCurrentContext().clearRules()
 
@@ -815,8 +809,7 @@ def test_06_funMakeTarget(_=ensureCleanContext):
     os.remove(TMP_FILE)
 
 
-@test("Can generate all targets from a pattern rule (with a glob call)")
-def test_07_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_07_generateAllTargetsOfPatternRules(_ensureCleanContext, _ensureEmptyTmp):
     """Can generate all targets from a pattern rule (with a glob call)"""
 
     os.mkdir("/tmp/remake_subdir")
@@ -839,8 +832,7 @@ def test_07_generateAllTargetsOfPatternRules(_=ensureCleanContext, _2=ensureEmpt
     )
 
 
-@test("Automatically detect dependencies with multiple targets")
-def test_08_funDepsMultipleTargets(_=ensureCleanContext):
+def test_08_funDepsMultipleTargets(_ensureCleanContext):
     """Automatically detect dependencies with multiple targets"""
 
     setDryRun()
@@ -940,8 +932,7 @@ def test_08_funDepsMultipleTargets(_=ensureCleanContext):
     ]
 
 
-@test("Rule with multiple targets is executed only once to make all targets")
-def test_09_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_09_ruleMultipleTargetsExecutedOnce(_ensureCleanContext, _ensureEmptyTmp):
     """Rule with multiple targets is executed only once to make all targets"""
 
     setDevTest()
@@ -965,8 +956,7 @@ def test_09_ruleMultipleTargetsExecutedOnce(_=ensureCleanContext, _2=ensureEmpty
     ]
 
 
-@test("Dependencies can be cleaned")
-def test_10_cleanDependencies(_=ensureCleanContext, _2=ensureEmptyTmp):
+def test_10_cleanDependencies(_ensureCleanContext, _ensureEmptyTmp):
     """Dependencies can be cleaned"""
 
     touchBuilder = Builder(action="touch $@")

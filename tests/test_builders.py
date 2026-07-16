@@ -9,7 +9,7 @@ import time
 import zipfile
 from pathlib import Path
 
-from ward import test, fixture, raises, skip
+import pytest
 
 from remake import Builder, Rule, VirtualDep, VirtualTarget
 from remake import getCurrentContext
@@ -18,8 +18,8 @@ from remake.builders import cp, mv, rm, tar, zip
 TMP_FILE = "/tmp/remake.tmp"
 
 
-@fixture
-def checkTmpFile():
+@pytest.fixture(name="_checkTmpFile")
+def fixture_checkTmpFile():
     """Check for temp file creation"""
     try:
         os.remove(f"{TMP_FILE}")
@@ -31,8 +31,8 @@ def checkTmpFile():
     os.remove(TMP_FILE)
 
 
-@fixture
-def setupTestCopyMove():
+@pytest.fixture(name="_setupTestCopyMove")
+def fixture_setupTestCopyMove():
     # Save current directory.
     prev_dir = os.getcwd()
 
@@ -91,7 +91,6 @@ def setupTestCopyMove():
     os.chdir(prev_dir)
 
 
-@test("Builders can handle python functions")
 def test_01_builderPyFun():
     """Builders can handle python functions"""
     def check_foobar(deps, targets, _):
@@ -106,8 +105,7 @@ def test_01_builderPyFun():
     getCurrentContext().clearRules()
 
 
-@test("Builders can handle shell commands")
-def test_02_builderShell(_=checkTmpFile):
+def test_02_builderShell(_checkTmpFile):
     """Builders can handle shell commands"""
 
     builder = Builder(action=f"touch {TMP_FILE}")
@@ -116,7 +114,6 @@ def test_02_builderShell(_=checkTmpFile):
     getCurrentContext().clearRules()
 
 
-@test("Builders can handle automatic variables ($^, $@)")
 def test_03_builderAutoVar():
     """Builders can handle automatic variables ($^, $@)"""
 
@@ -126,7 +123,6 @@ def test_03_builderAutoVar():
     getCurrentContext().clearRules()
 
 
-@test("Builders can handle kwargs.")
 def test_04_buildersKwargs():
     """Builders can handle kwargs."""
     def check_foobar(deps, targets, _, myArg=None):
@@ -147,8 +143,7 @@ def test_04_buildersKwargs():
     getCurrentContext().clearRules()
 
 
-@test("Basic file copy operations.")
-def test_05_copyFileOperations(_=setupTestCopyMove):
+def test_05_copyFileOperations(_setupTestCopyMove):
     """Basic file copy operations."""
     def _doCopy(src, dst):
         getCurrentContext().clearRules()
@@ -207,24 +202,23 @@ def test_05_copyFileOperations(_=setupTestCopyMove):
     # Non-existant source file
     source = "nonexistent_file.txt"
     destination = test_dir_1 / "copied_file.txt"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
     # Non-existent destination directory single file
     source = test_file_1
     destination = "nonexistent_dir/copied_file.txt"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
     # Non-existent destination directory
     source = [test_file_1, test_file_2]
     destination = "nonexistent_dir"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
 
-@test("Basic directory copy operations.")
-def test_06_copyDirectoryOperations(_=setupTestCopyMove):
+def test_06_copyDirectoryOperations(_setupTestCopyMove):
     """Basic directory copy operations."""
     def _doCopy(src, dst):
         getCurrentContext().clearRules()
@@ -275,13 +269,13 @@ def test_06_copyDirectoryOperations(_=setupTestCopyMove):
     # Non-existent source directory
     source = "nonexistent_dir"
     destination = test_dir_2 / "copied_dir"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
     # Attempt to copy a directory over an existing file as destination.
     source = test_dir_1
     destination = test_file_1
-    with raises(ValueError):
+    with pytest.raises(ValueError):
         _doCopy(source, destination)
 
     # Non-existent destination directory
@@ -289,8 +283,7 @@ def test_06_copyDirectoryOperations(_=setupTestCopyMove):
     # Thus same as above.
 
 
-@test("Basic link copy operations.")
-def test_07_copyLinkOperations(_=setupTestCopyMove):
+def test_07_copyLinkOperations(_setupTestCopyMove):
     """Basic link copy operations."""
     def _doCopy(src, dst):
         getCurrentContext().clearRules()
@@ -329,18 +322,17 @@ def test_07_copyLinkOperations(_=setupTestCopyMove):
     # Non-existent source link
     source = "nonexistent_link.lnk"
     destination = test_dir_1 / "copied_link.lnk"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
     # Non-existent destination directory for link
     source = link_to_file_1
     destination = "nonexistent_dir/copied_link.lnk"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doCopy(source, destination)
 
 
-@test("Basic file move operations.")
-def test_08_moveFileOperations(_=setupTestCopyMove):
+def test_08_moveFileOperations(_setupTestCopyMove):
     """Basic file move operations."""
     def _doMove(src, dst):
         getCurrentContext().clearRules()
@@ -378,18 +370,17 @@ def test_08_moveFileOperations(_=setupTestCopyMove):
     # Non-existant source file
     source = "nonexistent_file.txt"
     destination = test_dir_1 / "moved_file.txt"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doMove(source, destination)
 
     # Non-existent destination directory
     source = test_file_1
     destination = "nonexistent_dir/moved_file.txt"
-    with raises(OSError):
+    with pytest.raises(OSError):
         _doMove(source, destination)
 
 
-@test("Basic directory move operations.")
-def test_09_moveDirectoryOperations(_=setupTestCopyMove):
+def test_09_moveDirectoryOperations(_setupTestCopyMove):
     """Basic directory move operations."""
     def _doMove(src, dst):
         getCurrentContext().clearRules()
@@ -433,18 +424,17 @@ def test_09_moveDirectoryOperations(_=setupTestCopyMove):
     # Non-existent source directory
     source = "nonexistent_dir"
     destination = test_dir_4
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doMove(source, destination)
 
     # Non-existent destination directory
     source = [test_file_2, test_dir_4]
     destination = "nonexistent_dir"
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doMove(source, destination)
 
 
-@test("Basic file remove operations.")
-def test_10_removeFileOperations(_=setupTestCopyMove):
+def test_10_removeFileOperations(_setupTestCopyMove):
     """Basic file remove operations."""
     def _doRemove(targets):
         getCurrentContext().clearRules()
@@ -485,8 +475,7 @@ def test_10_removeFileOperations(_=setupTestCopyMove):
     assert target.exists() is False
 
 
-@test("Basic directory remove operations.")
-def test_11_removeDirectoryOperations(_=setupTestCopyMove):
+def test_11_removeDirectoryOperations(_setupTestCopyMove):
     """Basic directory remove operations."""
     def _doRemove(targets, recursive=False):
         getCurrentContext().clearRules()
@@ -522,7 +511,7 @@ def test_11_removeDirectoryOperations(_=setupTestCopyMove):
 
     # Attempt to remove a non-empty directory
     target = test_dir_1
-    with raises(OSError):
+    with pytest.raises(OSError):
         _doRemove(target)
     assert target.exists() is True
 
@@ -540,8 +529,7 @@ def test_11_removeDirectoryOperations(_=setupTestCopyMove):
     assert all([_.exists() is False for _ in targets])
 
 
-@test("Basic tar operations - single file")
-def test_12_tarSingleFile(_=setupTestCopyMove):
+def test_12_tarSingleFile(_setupTestCopyMove):
     """Creates a tar archive from a single file."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -575,9 +563,8 @@ def test_12_tarSingleFile(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic tar operations - single file with rename")
-@skip
-def test_13_tarSingleFileRename(_=setupTestCopyMove):
+@pytest.mark.skip
+def test_13_tarSingleFileRename(_setupTestCopyMove):
     """Creates a tar archive from a single file with a custom name in the archive."""
     # Currently no way to specify a name in the archive.
     raise NotImplementedError
@@ -611,8 +598,7 @@ def test_13_tarSingleFileRename(_=setupTestCopyMove):
     # os.remove(test_archive)
 
 
-@test("Basic tar operations - multiple files")
-def test_14_tarMultipleFiles(_=setupTestCopyMove):
+def test_14_tarMultipleFiles(_setupTestCopyMove):
     """Creates a tar archive from multiple files."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -654,8 +640,7 @@ def test_14_tarMultipleFiles(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic tar operations - directory")
-def test_15_tarDirectory(_=setupTestCopyMove):
+def test_15_tarDirectory(_setupTestCopyMove):
     """Creates a tar archive from a directory."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -686,8 +671,7 @@ def test_15_tarDirectory(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic tar operations - link")
-def test_16_tarLink(_=setupTestCopyMove):
+def test_16_tarLink(_setupTestCopyMove):
     """Creates a tar archive from a symbolic link."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -721,8 +705,7 @@ def test_16_tarLink(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Tar errors - non-existent source")
-def test_17_tarNonexistentSource(_=setupTestCopyMove):
+def test_17_tarNonexistentSource(_setupTestCopyMove):
     """Attempts to create a tar archive from a non-existent source and raises an error."""
     def _doTar(src, dst):
         getCurrentContext().clearRules()
@@ -734,15 +717,14 @@ def test_17_tarNonexistentSource(_=setupTestCopyMove):
     # Make sure archive does not exist
     test_archive.unlink(missing_ok=True)
 
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doTar(source, test_archive)
 
     # Clean up (archive won't be created)
     assert not test_archive.exists()
 
 
-@test("Tar with compression options")
-def test_18_tarCompression(_=setupTestCopyMove):
+def test_18_tarCompression(_setupTestCopyMove):
     """Creates a tar archive with different compression options."""
     def _doTar(src, dst, compression):
         getCurrentContext().clearRules()
@@ -782,8 +764,7 @@ def test_18_tarCompression(_=setupTestCopyMove):
     os.remove(test_archive_xz)
 
 
-@test("Basic zip operations - single file")
-def test_19_zipSingleFile(_=setupTestCopyMove):
+def test_19_zipSingleFile(_setupTestCopyMove):
     """Creates a zip archive from a single file."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -817,9 +798,8 @@ def test_19_zipSingleFile(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic zip operations - single file with rename")
-@skip
-def test_20_zipSingleFileRename(_=setupTestCopyMove):
+@pytest.mark.skip
+def test_20_zipSingleFileRename(_setupTestCopyMove):
     """Creates a zip archive from a single file with a custom name in the archive."""
     # Currently no way to specify a name in the archive.
     raise NotImplementedError
@@ -853,8 +833,7 @@ def test_20_zipSingleFileRename(_=setupTestCopyMove):
     # os.remove(test_archive)
 
 
-@test("Basic zip operations - multiple files")
-def test_21_zipMultipleFiles(_=setupTestCopyMove):
+def test_21_zipMultipleFiles(_setupTestCopyMove):
     """Creates a zip archive from multiple files."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -896,8 +875,7 @@ def test_21_zipMultipleFiles(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic zip operations - directory")
-def test_22_zipDirectory(_=setupTestCopyMove):
+def test_22_zipDirectory(_setupTestCopyMove):
     """Creates a zip archive from a directory."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -928,8 +906,7 @@ def test_22_zipDirectory(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Basic zip operations - link")
-def test_23_zipLink(_=setupTestCopyMove):
+def test_23_zipLink(_setupTestCopyMove):
     """Creates a zip archive from a symbolic link."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -963,8 +940,7 @@ def test_23_zipLink(_=setupTestCopyMove):
     os.remove(test_archive)
 
 
-@test("Zip errors - non-existent source")
-def test_24_zipNonexistentSource(_=setupTestCopyMove):
+def test_24_zipNonexistentSource(_setupTestCopyMove):
     """Attempts to create a zip archive from a non-existent source and raises an error."""
     def _doZip(src, dst):
         getCurrentContext().clearRules()
@@ -973,7 +949,7 @@ def test_24_zipNonexistentSource(_=setupTestCopyMove):
     test_archive = Path("archive.zip.gz")
     source = Path("nonexistent_file.txt")
 
-    with raises(FileNotFoundError):
+    with pytest.raises(FileNotFoundError):
         _doZip(source, test_archive)
 
     # Clean up (archive won't be created)
